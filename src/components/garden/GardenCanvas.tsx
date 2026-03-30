@@ -1,10 +1,11 @@
 import React from 'react'
-import { Canvas, Rect } from '@shopify/react-native-skia'
+import { Canvas } from '@shopify/react-native-skia'
 import { Theme } from '@/theme/theme'
 import { Plant } from '@/hooks/usePlants'
 import { Win } from '@/hooks/useWins'
 import { GARDEN_POSITIONS, resolvePosition } from '@/utils/gardenPositions'
 import { emojiToFlowerColor } from '@/utils/emojiColorMap'
+import GardenBackground from './GardenBackground'
 import Sprout from './Sprout'
 import Seedling from './Seedling'
 import Growing from './Growing'
@@ -30,10 +31,8 @@ const GardenCanvas = ({ width, height, theme, plants, wins }: Props) => {
 
   return (
     <Canvas style={{ width, height }}>
-      {/* Garden background */}
-      <Rect x={0} y={0} width={width} height={height} color={theme.background.garden} />
-      {/* Ground strip */}
-      <Rect x={0} y={groundY} width={width} height={height - groundY} color={theme.background.gardenGround} />
+      {/* Living garden background — sky, grass, motes, creatures, fog */}
+      <GardenBackground width={width} height={height} theme={theme} />
 
       {plants.map(plant => {
         if (plant.stage === 0) return null

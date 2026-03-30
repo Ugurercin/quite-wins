@@ -28,7 +28,7 @@ const LogWinSheet = ({ visible, todayWinCount, onSubmit, onClose }: Props) => {
   const [text, setText] = useState('')
   const [emoji, setEmoji] = useState('✨')
 
-  const atLimit = todayWinCount >= 10
+  const atLimit = todayWinCount >= 1000
   const s = makeStyles(theme)
 
   const handleSubmit = () => {
