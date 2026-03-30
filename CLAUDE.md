@@ -22,13 +22,15 @@ Users log 1–3 wins per day (text + emoji). Each win contributes to a plant in 
 - **Animations:** React Native Reanimated (plant bloom, sheet transitions)
 - **Storage:** AsyncStorage or SQLite (local, no backend needed)
 - **Notifications:** expo-notifications
+- **Audio:** expo-av (background music + SFX)
 
 ---
 
 ## Monetization
 
-- **Free:** Garden visualization only
+- **Free:** Garden visualization + Grove scene only
 - **$1.99 one-time IAP:** Unlocks all visualizations (constellation, wall of bricks, heat map)
+- **Scenes:** Paid — future scenes are separate purchases (price TBD)
 - No subscription. Ever.
 - Paywall copy: *"Unlock everything — $1.99. No subscription, ever. Just a one-time thanks."*
 
@@ -169,27 +171,27 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 5. **Plant detail** (popup on tap, delete option)
 6. **Season archive** (past seasons as snapshots)
 7. **Unlock screen** (paywall — other visualizations)
-8. **Settings** (notification time, theme toggle)
+8. **Settings** (notification time, theme toggle, music/SFX toggles)
 
 ---
 
 ## Phases
 
-### Phase 1 — Core loop
+### Phase 1 — Core loop ✅ COMPLETE
 - Onboarding (all 4 screens)
 - Garden screen (static, no animation yet)
 - Log win bottom sheet
 - Plant growth logic (4 stages)
 - Local storage
 
-### Phase 2 — Garden comes alive
+### Phase 2 — Garden comes alive ✅ COMPLETE
 - Plant growth animations
 - Bloom animation (stage 4)
 - New plant appearing animation
 - Tap a plant → popup
 - Delete win → plant shrink animation
 
-### Phase 3 — History & stats
+### Phase 3 — History & stats ✅ COMPLETE
 - History screen with swipe-to-delete
 - Season logic + season archive
 - Streak + total wins recalculation on delete
@@ -198,6 +200,7 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 - Other visualizations (constellation, bricks, heat map)
 - IAP integration ($1.99 unlock)
 - Notification system
+- Scene switcher UI (how user picks a scene — TBD)
 - App Store assets + submission
 
 ---
@@ -207,6 +210,208 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 - Font choice
 - App Store keywords + description
 - Whether to add a share/screenshot feature for gardens
+- How user switches scenes (settings screen / dedicated shop / long press)
+
+---
+
+---
+
+# Audio System
+
+## Library
+**`expo-av`** — handles background music (looping) and one-shot SFX.
+
+## Behavior rules
+- **Respects device silent mode** — if phone is muted, all audio off, no override (`playsInSilentModeIOS: false`)
+- Music and SFX have **separate controls** — each can be toggled independently
+- Music **crossfades** between contexts (300ms fade out → fade in) — never hard cuts
+- Audio **pauses when app backgrounds**, resumes on foreground
+- Default: both on, silenced if device is on silent
+
+## File structure
+```
+src/
+  audio/
+    useAudio.ts       ← hook: playMusic(context), playSFX(name), crossfadeTo, stopMusic
+    tracks.ts         ← ALL audio file paths live here — change paths here to swap sounds
+
+assets/
+  audio/
+    music/
+      onboarding.mp3  ← plays during all 4 onboarding steps
+      grove.mp3       ← (add when ready) grove main screen music
+    sfx/
+      level_up.mp3    ← tap sound — fires immediately on "Plant it" press
+      tree_grow.mp3   ← grow sound — fires 400ms after plant it (gives plant time to appear)
+```
+
+## tracks.ts — the swap file
+All audio paths are defined in `src/audio/tracks.ts`. **To experiment with a different sound, change the path in this file only.** Never hardcode audio paths anywhere else.
+
+```typescript
+export const MUSIC_TRACKS = {
+  onboarding: require('../../assets/audio/music/onboarding.mp3'),
+  // grove: require('../../assets/audio/music/grove.mp3'),
+}
+
+export const SFX_TRACKS = {
+  tap:       require('../../assets/audio/sfx/level_up.mp3'),   // swap to try different tap sounds
+  tree_grow: require('../../assets/audio/sfx/tree_grow.mp3'),  // swap to try different grow sounds
+}
+```
+
+## useAudio hook API
+```typescript
+const { playMusic, crossfadeTo, playSFX, stopMusic } = useAudio()
+
+crossfadeTo('onboarding')   // fade to a music context
+playSFX('tap')              // one-shot SFX
+stopMusic()                 // stop and unload current music
+```
+
+## Where audio is wired
+| Location | What plays |
+|----------|-----------|
+| `OnboardingScreen.tsx` — mount | `playMusic('onboarding')` starts |
+| `OnboardingScreen.tsx` — unmount | `stopMusic()` — cleanup on exit |
+| `LogWinSheet.tsx` — "Plant it" tap | `playSFX('tap')` immediately |
+| `LogWinSheet.tsx` — 400ms after tap | `playSFX('tree_grow')` |
+
+## Adding more audio later
+1. Drop the `.mp3` file into `assets/audio/music/` or `assets/audio/sfx/`
+2. Add the entry to `tracks.ts`
+3. Call `crossfadeTo('grove')` in `GardenScreen` or `playSFX('bloom')` in `PlantNode` etc.
+
+## Storage keys for settings
+```typescript
+MUSIC_ENABLED: 'qw_music_enabled',   // boolean, default true
+SFX_ENABLED:   'qw_sfx_enabled',     // boolean, default true
+```
+
+---
+
+---
+
+# Scene System
+
+## Concept
+A **scene** is a self-contained visual + audio package. The current garden becomes the **Grove** scene. Adding a new scene in the future means creating one folder — no rewiring of the app needed.
+
+Each scene owns: its plant colors, its background visuals, its music, and its canvas renderer.
+
+## Scene registry
+```
+src/
+  scenes/
+    types.ts              ← Scene and SceneColors interfaces — the contract
+    index.ts              ← Registry: SCENES[], DEFAULT_SCENE, getSceneById()
+    grove/
+      index.ts            ← Grove scene object
+      colors.ts           ← Grove colors derived from theme
+      music.ts            ← Grove music file reference
+      GardenCanvas.tsx    ← Grove canvas renderer
+      GardenBackground.tsx ← Grove background (sky, clouds, grass, butterflies, etc.)
+      plants/
+        Sprout.tsx
+        Seedling.tsx
+        Growing.tsx
+        Bloomed.tsx
+        ElderTree.tsx
+        PlantNode.tsx
+    desert/               ← future scene — same structure, plug and play
+      index.ts
+      colors.ts
+      music.ts
+      GardenCanvas.tsx
+      GardenBackground.tsx
+      plants/
+        ...
+```
+
+## The Scene contract (`types.ts`)
+```typescript
+export interface SceneColors {
+  trunk: string
+  bodyDark: string
+  bodyMid: string
+  bodyLight: string
+  sprout: string
+  bloom: string
+  backgroundGarden: string
+  backgroundGround: string
+}
+
+export interface CanvasProps {
+  width: number
+  height: number
+  colors: SceneColors
+  theme: Theme          // still needed for accent colors (emoji → flower)
+  plants: Plant[]
+  wins: Win[]
+  onPlantTap?: (plant: Plant) => void
+}
+
+export interface Scene {
+  id: string
+  name: string
+  locked: boolean
+  music: any                           // require()'d mp3
+  getColors: (theme: Theme) => SceneColors
+  Canvas: React.ComponentType<CanvasProps>
+}
+```
+
+## Scene registry (`scenes/index.ts`)
+```typescript
+import grove from './grove'
+// import desert from './desert'   ← uncomment when ready
+
+export const SCENES = [grove]
+export const DEFAULT_SCENE = grove
+export const getSceneById = (id: string): Scene =>
+  SCENES.find(s => s.id === id) ?? DEFAULT_SCENE
+```
+
+## How GardenScreen uses a scene
+```typescript
+const scene = DEFAULT_SCENE  // swap for user-selected scene when switcher is built
+const sceneColors = scene.getColors(theme)
+const SceneCanvas = scene.Canvas
+
+<SceneCanvas
+  width={width}
+  height={height * 0.72}
+  colors={sceneColors}
+  theme={theme}
+  plants={plants}
+  wins={wins}
+  onPlantTap={handlePlantTap}
+/>
+```
+
+## Critical rules
+- **Plant sprites receive `colors: SceneColors`, never `theme: Theme`** — they are scene-agnostic
+- **`GardenBackground` owns its own environment colors** (sky, grass, stones) — these are NOT in `SceneColors`. `SceneColors` is for plants only. Each scene's background file is fully custom.
+- **`theme` still flows into `GardenCanvas`** for accent/flower colors via `emojiToFlowerColor(emoji, theme)`
+- **Never import from `@/components/garden/`** — that folder is deprecated. All garden code now lives in `src/scenes/grove/`
+- To add a new scene: copy the `grove/` folder, rename it, change colors/music/background, add to registry. Done.
+
+## Grove scene — default scene
+- **Name:** Grove
+- **Locked:** false (always free)
+- **Music:** `onboarding.mp3` (temporary — replace with `grove.mp3` when ready)
+- **Background:** Sky gradient, rolling hills, clouds, birds, butterflies, ladybug, grass layers, stones, wildflowers
+- **Plant colors:** Derived from `theme.plant.*` so light/dark mode is respected automatically
+
+## Adding a scene checklist
+- [ ] Create `src/scenes/{name}/` folder
+- [ ] Copy grove structure exactly
+- [ ] Update `colors.ts` with new color palette
+- [ ] Update `music.ts` with new audio file
+- [ ] Rewrite `GardenBackground.tsx` for the new environment
+- [ ] Optionally reskin plant sprites in `plants/`
+- [ ] Add to `src/scenes/index.ts` registry
+- [ ] Add `locked: true` if it should be behind a paywall
 
 ---
 
@@ -228,7 +433,8 @@ Bright plant greens pop against both. Accent colors (amber, pink, purple, coral)
 ## Philosophy
 
 - **Zero hardcoded colors** anywhere in the app. Ever.
-- Every color references a token from `theme.ts`
+- Every UI color references a token from `theme.ts`
+- Every plant/canvas color references `SceneColors` from the active scene
 - Theme can be set to `light`, `dark`, or `system` (follows device setting)
 - Changed from Settings screen, persisted to AsyncStorage
 - All components consume colors via `useTheme()` hook
@@ -242,7 +448,7 @@ Bright plant greens pop against both. Accent colors (amber, pink, purple, coral)
 ```
 src/
   theme/
-    theme.ts          ← single source of truth, all tokens defined here
+    theme.ts          ← single source of truth, all UI tokens defined here
     ThemeContext.tsx   ← context provider, useTheme() hook lives here
     index.ts          ← exports
   utils/
@@ -283,7 +489,7 @@ export const lightTheme = {
     lightest: '#E8F5D8',      // very light tints
   },
 
-  // Plants
+  // Plants — consumed by SceneColors in grove/colors.ts
   plant: {
     trunk: '#4A6B2A',
     bodyDark: '#2D5A0F',
@@ -320,7 +526,6 @@ export const lightTheme = {
 }
 
 export const darkTheme = {
-  // Backgrounds — near-black forest, deeper variant
   background: {
     primary: '#0D1A0B',
     secondary: '#141F12',
@@ -328,16 +533,12 @@ export const darkTheme = {
     garden: '#0A1508',
     gardenGround: '#1A3010',
   },
-
-  // Text — slightly brighter for contrast
   text: {
     primary: '#EAF5E0',
     secondary: '#8AAA80',
     tertiary: '#4A6A42',
     inverse: '#0D1A0B',
   },
-
-  // Brand — slightly brighter to pop on deeper bg
   brand: {
     darkest: '#173404',
     dark: '#27500A',
@@ -347,8 +548,6 @@ export const darkTheme = {
     lighter: '#C8E8A0',
     lightest: '#E8F5D8',
   },
-
-  // Plants — brighter on deeper bg
   plant: {
     trunk: '#527A30',
     bodyDark: '#355F15',
@@ -357,16 +556,12 @@ export const darkTheme = {
     sprout: '#76AE2A',
     bloom: '#C8E8A0',
   },
-
-  // Accents — same, pop on any dark bg
   accent: {
     amber: '#EF9F27',
     pink: '#D4537E',
     purple: '#7F77DD',
     coral: '#D85A30',
   },
-
-  // UI
   ui: {
     border: 'rgba(255,255,255,0.06)',
     borderStrong: 'rgba(255,255,255,0.12)',
@@ -375,8 +570,6 @@ export const darkTheme = {
     danger: '#D85A30',
     deleteRed: '#C0392B',
   },
-
-  // Stats
   stats: {
     streakText: '#A8D468',
     winsText: '#C8E8A0',
@@ -396,6 +589,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useColorScheme } from 'react-native'
 import { lightTheme, darkTheme, Theme } from './theme'
+import { STORAGE_KEYS } from '@/storage/keys'
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -413,14 +607,14 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setModeState] = useState<ThemeMode>('system')
 
   useEffect(() => {
-    AsyncStorage.getItem('themeMode').then(saved => {
+    AsyncStorage.getItem(STORAGE_KEYS.THEME_MODE).then(saved => {
       if (saved) setModeState(saved as ThemeMode)
     })
   }, [])
 
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode)
-    AsyncStorage.setItem('themeMode', newMode)
+    AsyncStorage.setItem(STORAGE_KEYS.THEME_MODE, newMode)
   }
 
   const isDark =
@@ -444,7 +638,7 @@ export const useTheme = () => {
 
 ---
 
-## Usage in any component
+## Usage in any UI component
 
 ```typescript
 import { useTheme } from '@/theme'
@@ -455,33 +649,23 @@ const GardenScreen = () => {
   return (
     <View style={{ backgroundColor: theme.background.primary }}>
       <Text style={{ color: theme.text.primary }}>Quiet Wins</Text>
-      <View style={{ backgroundColor: theme.background.garden }}>
-        {/* garden renders here */}
-      </View>
     </View>
   )
 }
 ```
 
----
-
-## Usage in Skia (garden canvas)
+## Usage in Skia (plant sprites)
 
 ```typescript
-import { useTheme } from '@/theme'
-import { Canvas, Rect } from '@shopify/react-native-skia'
+// Plant sprites now receive SceneColors, NOT Theme
+import { SceneColors } from '@/scenes/types'
 
-const GardenCanvas = () => {
-  const { theme } = useTheme()
-
+const Sprout = ({ x, y, colors }: { x: number; y: number; colors: SceneColors }) => {
   return (
-    <Canvas style={{ flex: 1 }}>
-      <Rect
-        x={0} y={0} width={width} height={height}
-        color={theme.background.garden}
-      />
-      {/* plant colors from theme.plant.* */}
-    </Canvas>
+    <>
+      <Path ... color={colors.sprout} />
+      <Circle ... color={colors.bodyLight} />
+    </>
   )
 }
 ```
@@ -502,12 +686,15 @@ Note: both modes are dark-green themed. "Light" means slightly less deep, not wh
 
 ## Rules for developers
 
-1. **Never** use a raw hex color in a component. Always use `theme.*`
-2. **Never** use `StyleSheet.create()` with hardcoded colors — create styles inside the component where `theme` is available, or pass colors as props
-3. **Garden canvas (Skia)** uses `theme.plant.*` and `theme.background.garden` exclusively
-4. **Accent/flower colors** use `theme.accent.*` via `emojiColorMap.ts`
-5. When adding a new color need, add it to **both** `lightTheme` and `darkTheme` before using it
-6. Both themes are dark-green by design — never introduce white, light gray, or neutral backgrounds
+1. **Never** use a raw hex color in a UI component. Always use `theme.*`
+2. **Never** use `StyleSheet.create()` with hardcoded colors
+3. **Plant sprites (Skia)** use `colors: SceneColors` — never `theme` directly
+4. **GardenCanvas** receives both `colors` (for plants) and `theme` (for accent/flower colors)
+5. **GardenBackground** owns its own fixed environment colors — these are scene-specific, not from `SceneColors`
+6. **Accent/flower colors** use `theme.accent.*` via `emojiColorMap.ts`
+7. When adding a new UI color, add it to **both** `lightTheme` and `darkTheme` before using it
+8. Both themes are dark-green by design — never introduce white, light gray, or neutral backgrounds
+9. **Never import from `@/components/garden/`** — deprecated. Use `@/scenes/grove/` instead
 
 ---
 
@@ -574,23 +761,14 @@ When a new season begins, show a one-time message over the garden:
 10 rotating daily notifications. Dark humor, encouraging, zero guilt. Never the same one twice in a row. Rotate randomly.
 
 1. *"Your plants miss you. Not in a guilt-trippy way. Just, you know. They're plants."*
-
 2. *"What did you do today that was worth remembering? Even something small."*
-
 3. *"You don't have to have a great day. You just have to find one thing in it."*
-
 4. *"Your garden is waiting. It's very patient. Unlike your inbox."*
-
 5. *"One win. That's it. You've survived harder things than opening this app."*
-
 6. *"Today happened. Log something before it disappears."*
-
 7. *"The tree doesn't judge. It just grows. Give it something to work with."*
-
 8. *"You did something today. You just haven't written it down yet."*
-
 9. *"Small wins compound. That's not motivation speak, that's just math."*
-
 10. *"Still here. Still growing. Log a win before you forget what you did today."*
 
 ### Notification rules
@@ -609,7 +787,7 @@ When a new season begins, show a one-time message over the garden:
 - Never use `StyleSheet.create()` with hardcoded colors — always use `useTheme()` inside the component
 - Keep every component under 150 lines — if it grows larger, split into smaller components
 - No business logic inside components — extract into custom hooks under `src/hooks/`
-- No inline styles beyond layout (flex, margin, padding) — colors always from theme
+- No inline styles beyond layout (flex, margin, padding) — colors always from theme or sceneColors
 - Every screen component lives in `src/screens/`, every reusable UI piece in `src/components/`
 
 ## Naming
@@ -625,10 +803,11 @@ When a new season begins, show a one-time message over the garden:
 - Garden position calculations live in `src/utils/gardenPositions.ts`
 
 ## Skia (garden canvas)
-- All Skia drawing code lives in `src/components/garden/`
+- All Skia drawing code lives in `src/scenes/{sceneName}/`
+- **Never import from `src/components/garden/`** — that folder is deprecated
 - Never mix Skia and React Native Views in the same component
-- Plant rendering logic split by stage: `Sprout.tsx`, `Seedling.tsx`, `Growing.tsx`, `Bloomed.tsx`, `ElderTree.tsx`
-- Colors always from `theme.plant.*` — never hardcoded in Skia components
+- Plant rendering logic split by stage in `src/scenes/{sceneName}/plants/`
+- Plant sprites receive `colors: SceneColors` — never `theme: Theme` directly
 
 ---
 
@@ -686,13 +865,16 @@ interface StreakState {
 ## Storage Keys
 ```typescript
 const STORAGE_KEYS = {
-  WINS: 'qw_wins',               // Win[]
-  PLANTS: 'qw_plants',           // Plant[]
-  SEASONS: 'qw_seasons',         // Season[]
-  STREAK: 'qw_streak',           // StreakState
-  THEME_MODE: 'qw_theme_mode',   // 'light' | 'dark' | 'system'
-  ONBOARDED: 'qw_onboarded',     // boolean — has user completed onboarding
-  NOTIFICATION_TIME: 'qw_notif_time',  // e.g. "21:00"
+  WINS: 'qw_wins',                    // Win[]
+  PLANTS: 'qw_plants',               // Plant[]
+  SEASONS: 'qw_seasons',             // Season[]
+  STREAK: 'qw_streak',               // StreakState
+  THEME_MODE: 'qw_theme_mode',       // 'light' | 'dark' | 'system'
+  ONBOARDED: 'qw_onboarded',         // boolean — has user completed onboarding
+  NOTIFICATION_TIME: 'qw_notif_time', // e.g. "21:00"
+  MUSIC_ENABLED: 'qw_music_enabled', // boolean, default true
+  SFX_ENABLED: 'qw_sfx_enabled',     // boolean, default true
+  ACTIVE_SCENE: 'qw_active_scene',   // scene id string, default 'grove'
 }
 ```
 
@@ -700,86 +882,16 @@ const STORAGE_KEYS = {
 
 ---
 
-# TASKS.md — Phase 1
-
-Work through these in order. Check off each task before moving to the next. Do not start Phase 2 until all Phase 1 tasks are complete.
-
-## Setup
-- [ ] Confirm `src/theme/theme.ts` exists with `lightTheme`, `darkTheme`, and `Theme` type
-- [ ] Confirm `src/theme/ThemeContext.tsx` exists with `ThemeProvider` and `useTheme()`
-- [ ] Confirm `src/theme/index.ts` exports both
-- [ ] Confirm `App.tsx` is wrapped in `<ThemeProvider>`
-- [ ] Confirm `STORAGE_KEYS` constants are defined in `src/storage/keys.ts`
-
-## Data layer
-- [ ] Create `src/hooks/useWins.ts` — addWin, deleteWin, getWinsForDay, getAllWins
-- [ ] Create `src/hooks/usePlants.ts` — getPlants, growPlant, shrinkPlant, addElderTree
-- [ ] Create `src/hooks/useStreak.ts` — getCurrentStreak, updateStreak, checkGrace
-- [ ] Create `src/hooks/useSeasons.ts` — getCurrentSeason, completeSeason
-- [ ] Create `src/utils/gardenPositions.ts` — pre-calculated list of 10 slot positions spiraling from center
-- [ ] Create `src/utils/emojiColorMap.ts` — emojiToFlowerColor(emoji, theme)
-
-## Onboarding
-- [ ] Create `src/screens/OnboardingScreen.tsx` with 4 steps managed internally
-- [ ] Step 1: App name + tagline + "Get started" button
-- [ ] Step 2: Notification time picker (Morning / Evening / Custom / Skip)
-- [ ] Step 3: First win input (text + emoji picker + "Plant it" button)
-- [ ] Step 4: Garden with first plant visible + stats (1 win, 1 day streak) + "Go to my garden"
-- [ ] On complete: set `STORAGE_KEYS.ONBOARDED` to true, save notification time, save first win
-- [ ] App.tsx checks `ONBOARDED` on launch — shows OnboardingScreen or GardenScreen
-
-## Garden screen (static — no animations yet)
-- [ ] Create `src/screens/GardenScreen.tsx`
-- [ ] Stats row at top: streak + total wins, both from theme.stats.*
-- [ ] Garden area: renders plants based on current Plant[] data, using Skia canvas
-- [ ] Each plant renders correct stage (Sprout / Seedling / Growing / Bloomed / Elder)
-- [ ] "+" button at bottom — opens LogWinSheet
-- [ ] History icon in top corner — navigates to HistoryScreen
-- [ ] All colors from theme — zero hardcoded values
-
-## Plant sprites (static — no animations yet)
-- [ ] Create `src/components/garden/Sprout.tsx` — stage 1 Skia component
-- [ ] Create `src/components/garden/Seedling.tsx` — stage 2 Skia component
-- [ ] Create `src/components/garden/Growing.tsx` — stage 3 Skia component
-- [ ] Create `src/components/garden/Bloomed.tsx` — stage 4 Skia component
-- [ ] Create `src/components/garden/ElderTree.tsx` — permanent elder, visually distinct
-- [ ] Each sprite receives `x`, `y`, `theme` as props — no internal theme access
-
-## Log win bottom sheet
-- [ ] Create `src/components/LogWinSheet.tsx`
-- [ ] Slides up from bottom, garden visible behind it
-- [ ] Text input: "What did you win today?"
-- [ ] Emoji quick-pick row (8–10 common emojis) + "more" option
-- [ ] "Plant it" button — disabled if text is empty
-- [ ] On submit: calls addWin, calls growPlant, closes sheet
-- [ ] If 3 wins already logged today: show message instead of form — *"You've planted 3 wins today. Come back tomorrow."*
-
-## Local storage
-- [ ] All hooks read and write via AsyncStorage using STORAGE_KEYS
-- [ ] On first launch (no data): initialize empty wins [], plants [], season_1, streak state
-- [ ] Verify data persists across app restarts
-
-## Checklist before Phase 2
-- [ ] Can complete full onboarding flow
-- [ ] Can log a win from garden screen
-- [ ] Plant appears in correct slot at correct stage
-- [ ] Stats update after logging
-- [ ] Data persists after closing and reopening app
-- [ ] All screens use theme colors — no hardcoded hex values anywhere
-
----
-
----
-
 # DECISIONS.md
 
-Key decisions made during planning and the reasoning behind them. Read this before making any judgment calls during development.
+Key decisions made during planning and development. Read this before making any judgment calls.
 
 | Decision | Choice | Why |
 |----------|--------|-----|
 | Framework | Expo + React Native | One codebase for iOS + Android, fastest path to both stores |
 | Graphics | React Native Skia | Best performance for custom 2D garden rendering on both platforms |
 | Storage | AsyncStorage / SQLite | No backend needed, fully offline, no user accounts, no privacy concerns |
+| Audio | expo-av | Already in Expo ecosystem, handles both music loops and one-shot SFX |
 | Theme | Dark forest green always | Core identity — both light and dark modes are green, never white or gray |
 | Win limit | 1–3 per day | Keeps logging lightweight, prevents the app feeling like a task manager |
 | Plant growth | 4 wins = full bloom | Simple, achievable, satisfying — not too fast, not too slow |
@@ -790,9 +902,17 @@ Key decisions made during planning and the reasoning behind them. Read this befo
 | Streak grace | 1 skip per week | Forgiving without making streaks meaningless |
 | Streak reset tone | Gentle, never punishing | Garden stays intact — only the number resets, not the emotional progress |
 | Monetization | Free + $1.99 one-time IAP | No subscription guilt, impulse-buy price, unlocks all visualizations forever |
+| Scenes monetization | Paid per scene (price TBD) | Different from visualizations — scenes are environments, sold separately |
 | Notifications | 10 rotating, dark humor | Avoids notification fatigue, matches the app's personality |
 | No notification if 3 wins logged | Skip notification | Respects the user — they're done for the day, don't bother them |
 | Onboarding | 4 screens, first win required | User feels the app before leaving onboarding — retention from minute one |
+| Scene system | Self-contained folders | Plug and play — new scene = new folder, no rewiring needed |
+| SceneColors vs Theme | Separate contracts | Plant sprites are scene-agnostic; UI components use theme. Clean separation. |
+| GardenBackground colors | Fixed per scene | Background environment (sky, grass) is scene-specific, not driven by theme tokens |
+| Audio silent mode | Respect device silent switch | Never override the user's intent — if phone is muted, app is muted |
+| SFX timing | tap immediate, grow +400ms | tap fires on press for instant feedback; grow fires after sheet closes so it syncs with plant appearing |
+| Default scene | Grove | Warm, natural, matches app identity. Free forever. |
+| Scene switching UI | TBD | Not decided yet — settings / shop screen / long press all under consideration |
 
 ---
 
