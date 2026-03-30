@@ -15,7 +15,7 @@ import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
 import { useSeasons, isSeasonComplete } from '@/hooks/useSeasons'
 import { Plant } from '@/hooks/usePlants'
-import GardenCanvas from '@/components/garden/GardenCanvas'
+import { DEFAULT_SCENE } from '@/scenes'
 import LogWinSheet from '@/components/LogWinSheet'
 import PlantPopup from '@/components/PlantPopup'
 import SeasonRecapOverlay from '@/components/SeasonRecapOverlay'
@@ -38,12 +38,10 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
   const [streakResetMsg, setStreakResetMsg] = useState(false)
 
-  // Recap overlay state
   const [recapVisible, setRecapVisible] = useState(false)
   const [recapSeasonNumber, setRecapSeasonNumber] = useState(0)
   const [recapTotalWins, setRecapTotalWins] = useState(0)
 
-  // Store season-end data in refs so onReady closure never goes stale
   const pendingUpdatedPlants = useRef<Plant[]>([])
   const pendingTotalWins = useRef(0)
   const pendingCompletedSeasonCount = useRef(0)
@@ -52,8 +50,13 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
   const todayWins = wins.filter(w => w.createdAt.startsWith(today))
   const totalWins = wins.length
   const currentSeason = getCurrentSeason()
-
   const completedCount = seasons.filter(s => s.completedAt !== null).length
+
+  // ─── Scene ──────────────────────────────────────────────────────────────────
+  // Swap DEFAULT_SCENE for a user-selected scene when scene switching is built.
+  const scene = DEFAULT_SCENE
+  const sceneColors = scene.getColors(theme)
+  const SceneCanvas = scene.Canvas
 
   const handleAddWin = async (text: string, emoji: string) => {
     if (!currentSeason) return
@@ -66,7 +69,6 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
       const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
       const totalWinsSnapshot = wins.length + 1
 
-      // Stash values in refs so onReady never closes over stale state
       pendingUpdatedPlants.current = updatedPlants
       pendingTotalWins.current = totalWinsSnapshot
       pendingCompletedSeasonCount.current = currentSeason.number
@@ -87,9 +89,7 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
     await addElderTrees(pendingCompletedSeasonCount.current, nextSeason.id)
   }
 
-  const handlePlantTap = (plant: Plant) => {
-    setSelectedPlant(plant)
-  }
+  const handlePlantTap = (plant: Plant) => setSelectedPlant(plant)
 
   const handleDeleteWin = async (winId: string) => {
     await deleteWin(winId)
@@ -163,7 +163,7 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
           )}
         </View>
 
-        {/* Streak reset gentle message */}
+        {/* Streak reset message */}
         {streakResetMsg && (
           <View style={[s.resetBanner, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
             <Text style={[s.resetMsg, { color: theme.text.secondary }]}>
@@ -172,11 +172,12 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
           </View>
         )}
 
-        {/* Garden canvas */}
+        {/* Scene canvas */}
         <View style={{ flex: 1 }}>
-          <GardenCanvas
+          <SceneCanvas
             width={width}
             height={height * 0.72}
+            colors={sceneColors}
             theme={theme}
             plants={plants}
             wins={wins}

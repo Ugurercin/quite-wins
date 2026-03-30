@@ -12,7 +12,8 @@ import { Theme } from '@/theme/theme'
 import { Season } from '@/hooks/useSeasons'
 import { Plant } from '@/hooks/usePlants'
 import { Win } from '@/hooks/useWins'
-import GardenCanvas from '@/components/garden/GardenCanvas'
+import GardenCanvas from '@/scenes/grove/GardenCanvas'
+import { DEFAULT_SCENE } from '@/scenes'
 
 interface Props {
   season: Season | null
@@ -31,6 +32,7 @@ const SeasonSnapshotModal = ({ season, plants, wins, theme, onClose }: Props) =>
   if (!season) return null
 
   const canvasHeight = width * 0.7
+  const sceneColors = DEFAULT_SCENE.getColors(theme)
   const s = makeStyles(theme)
 
   return (
@@ -54,11 +56,11 @@ const SeasonSnapshotModal = ({ season, plants, wins, theme, onClose }: Props) =>
           </TouchableOpacity>
         </View>
 
-        {/* Static garden snapshot — no tap handlers, no animations on mount */}
         <View style={[s.canvasWrap, { borderColor: theme.ui.border }]}>
           <GardenCanvas
-            width={width - 32}
+            width={width}
             height={canvasHeight}
+            colors={sceneColors}
             theme={theme}
             plants={plants}
             wins={wins}

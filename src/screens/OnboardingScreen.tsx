@@ -19,7 +19,8 @@ import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
 import { useSeasons } from '@/hooks/useSeasons'
 import { useAudio } from '@/audio/useAudio'
-import GardenCanvas from '@/components/garden/GardenCanvas'
+import GardenCanvas from '@/scenes/grove/GardenCanvas'
+import { DEFAULT_SCENE } from '@/scenes'
 
 const QUICK_EMOJIS = ['✨', '💪', '📚', '🎯', '🏃', '⭐', '❤️', '🚀', '🌟', '🎉']
 
@@ -272,13 +273,14 @@ const OnboardingScreen = ({ onComplete }: Props) => {
         </View>
       </View>
       <View style={{ flex: 1 }}>
-        <GardenCanvas
-          width={width}
-          height={height * 0.6}
-          theme={theme}
-          plants={plants}
-          wins={wins}
-        />
+ <GardenCanvas
+  width={width}
+  height={height * 0.6}
+  colors={DEFAULT_SCENE.getColors(theme)}
+  theme={theme}
+  plants={plants}
+  wins={wins}
+/>
       </View>
       <View style={s.step4Footer}>
         <Text style={[s.step4Message, { color: theme.text.secondary }]}>
