@@ -1,6 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { STORAGE_KEYS } from '@/storage/keys'
+import { Plant } from '@/hooks/usePlants'
+
+// Pure function — safe to call outside the hook (e.g. in GardenScreen after growPlant).
+// Season is complete when all non-elder slots are filled at stage 4.
+// Elder Trees are permanent and do not count toward the fill requirement.
+export const isSeasonComplete = (plants: Plant[]): boolean => {
+  const elders = plants.filter(p => p.isElder)
+  const nonElders = plants.filter(p => !p.isElder && p.stage > 0)
+const slotsNeeded = __DEV__ ? 1 : (10 - elders.length)
+  return nonElders.length >= slotsNeeded && nonElders.every(p => p.stage === 4)
+}
 
 export interface Season {
   id: string
@@ -8,6 +19,7 @@ export interface Season {
   startedAt: string
   completedAt: string | null
   totalWins: number
+  plantSnapshot: Plant[]  // full plants array captured at the moment of completion
 }
 
 const loadSeasons = async (): Promise<Season[]> => {
@@ -25,6 +37,7 @@ const createSeason = (number: number): Season => ({
   startedAt: new Date().toISOString(),
   completedAt: null,
   totalWins: 0,
+  plantSnapshot: [],
 })
 
 export const useSeasons = () => {
@@ -50,7 +63,7 @@ export const useSeasons = () => {
   }, [seasons])
 
   const completeSeason = useCallback(
-    async (totalWins: number): Promise<Season> => {
+    async (totalWins: number, plantSnapshot: Plant[]): Promise<Season> => {
       const current = seasons.find(s => s.completedAt === null)
       if (!current) throw new Error('No active season')
 
@@ -59,7 +72,7 @@ export const useSeasons = () => {
       const nextSeason = createSeason(nextNumber)
 
       const updated = seasons.map(s =>
-        s.id === current.id ? { ...s, completedAt, totalWins } : s,
+        s.id === current.id ? { ...s, completedAt, totalWins, plantSnapshot } : s,
       )
       updated.push(nextSeason)
 

@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react'
-import { View, Text } from 'react-native'
+import { View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ThemeProvider } from '@/theme'
 import { STORAGE_KEYS } from '@/storage/keys'
 import OnboardingScreen from '@/screens/OnboardingScreen'
 import GardenScreen from '@/screens/GardenScreen'
+import HistoryScreen from '@/screens/HistoryScreen'
+import SeasonArchiveScreen from '@/screens/SeasonArchiveScreen'
 
-type Screen = 'loading' | 'onboarding' | 'garden' | 'history'
+type Screen = 'loading' | 'onboarding' | 'garden' | 'history' | 'archive'
 
 const AppNavigator = () => {
   const [screen, setScreen] = useState<Screen>('loading')
+  // Increment to force GardenScreen remount after returning from History or Archive,
+  // ensuring it reads fresh data from AsyncStorage instead of showing stale state.
+  const [gardenKey, setGardenKey] = useState(0)
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.ONBOARDED).then(value => {
@@ -31,26 +36,26 @@ const AppNavigator = () => {
     setScreen('onboarding')
   }
 
-  if (screen === 'garden') {
-    return (
-      <GardenScreen
-        onNavigateHistory={() => setScreen('history')}
-        onDevReset={__DEV__ ? handleDevReset : undefined}
-      />
-    )
+  const handleBackToGarden = () => {
+    setGardenKey(k => k + 1)
+    setScreen('garden')
   }
 
-  // history — placeholder for Phase 3
+  if (screen === 'history') {
+    return <HistoryScreen onBack={handleBackToGarden} />
+  }
+
+  if (screen === 'archive') {
+    return <SeasonArchiveScreen onBack={handleBackToGarden} />
+  }
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#0D1A0B', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#9AB890', fontSize: 16 }}>History — coming in Phase 3</Text>
-      <Text
-        style={{ color: '#4A8A1A', marginTop: 16, fontSize: 14 }}
-        onPress={() => setScreen('garden')}
-      >
-        ← Back to garden
-      </Text>
-    </View>
+    <GardenScreen
+      key={gardenKey}
+      onNavigateHistory={() => setScreen('history')}
+      onNavigateArchive={() => setScreen('archive')}
+      onDevReset={__DEV__ ? handleDevReset : undefined}
+    />
   )
 }
 

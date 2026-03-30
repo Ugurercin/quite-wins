@@ -13,39 +13,56 @@ import { Theme } from '@/theme/theme'
 import { useWins } from '@/hooks/useWins'
 import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
-import { useSeasons } from '@/hooks/useSeasons'
+import { useSeasons, isSeasonComplete } from '@/hooks/useSeasons'
 import { Plant } from '@/hooks/usePlants'
 import GardenCanvas from '@/components/garden/GardenCanvas'
 import LogWinSheet from '@/components/LogWinSheet'
 import PlantPopup from '@/components/PlantPopup'
+import SeasonTransitionOverlay from '@/components/SeasonTransitionOverlay'
 
 interface Props {
   onNavigateHistory: () => void
+  onNavigateArchive: () => void
   onDevReset?: () => void
 }
 
-const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
+const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Props) => {
   const { theme } = useTheme()
   const { width, height } = useWindowDimensions()
   const { wins, addWin, deleteWin } = useWins()
-  const { plants, growPlant, shrinkPlant } = usePlants()
-  const { streak, updateStreak, recalculateStreak } = useStreak()
-  const { getCurrentSeason } = useSeasons()
+  const { plants, growPlant, shrinkPlant, addElderTrees, clearNonElderPlants } = usePlants()
+  const { streak, updateStreak, recalculateStreak, graceAvailable } = useStreak()
+  const { seasons, getCurrentSeason, completeSeason } = useSeasons()
 
   const [sheetVisible, setSheetVisible] = useState(false)
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
+  const [transitionSeason, setTransitionSeason] = useState<number | null>(null)
+  const [streakResetMsg, setStreakResetMsg] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const todayWins = wins.filter(w => w.createdAt.startsWith(today))
   const totalWins = wins.length
   const currentSeason = getCurrentSeason()
 
+  const completedCount = seasons.filter(s => s.completedAt !== null).length
+
   const handleAddWin = async (text: string, emoji: string) => {
     if (!currentSeason) return
     const win = await addWin(text, emoji, currentSeason.id)
-    await growPlant(win.id, currentSeason.id)
+    const updatedPlants = await growPlant(win.id, currentSeason.id)
     await updateStreak()
     setSheetVisible(false)
+
+    // Check season completion after the plant has grown
+    if (isSeasonComplete(updatedPlants)) {
+      const nextSeason = await completeSeason(totalWins + 1, updatedPlants)
+      // Clear regular plants — only Elder Trees carry into the new season
+      await clearNonElderPlants()
+      // Add elder trees equal to number of completed seasons (one per completed season)
+      const elderCount = seasons.filter(s => s.completedAt !== null).length + 1
+      await addElderTrees(elderCount, nextSeason.id)
+      setTransitionSeason(nextSeason.number)
+    }
   }
 
   const handlePlantTap = (plant: Plant) => {
@@ -53,17 +70,17 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
   }
 
   const handleDeleteWin = async (winId: string) => {
-    // Delete the win from storage
     await deleteWin(winId)
-
-    // Shrink the owning plant (returns updated plants list)
     const updatedPlants = await shrinkPlant(winId)
 
-    // Silent streak recalculation from remaining wins
     const remainingWins = wins.filter(w => w.id !== winId)
-    await recalculateStreak(remainingWins.map(w => w.createdAt))
+    const { wasReset } = await recalculateStreak(remainingWins.map(w => w.createdAt))
 
-    // Keep popup open with updated plant, or close if plant disappeared
+    if (wasReset) {
+      setStreakResetMsg(true)
+      setTimeout(() => setStreakResetMsg(false), 4000)
+    }
+
     if (selectedPlant) {
       const stillExists = updatedPlants.find(p => p.id === selectedPlant.id)
       setSelectedPlant(stillExists ?? null)
@@ -76,6 +93,7 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
     <View style={{ flex: 1, backgroundColor: theme.background.primary }}>
       <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
       <SafeAreaView style={{ flex: 1 }}>
+
         {/* Stats row */}
         <View style={[s.statsRow, { backgroundColor: theme.stats.statsBg, borderBottomColor: theme.ui.border }]}>
           <View style={s.statItem}>
@@ -85,6 +103,9 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
             <Text style={[s.statLabel, { color: theme.text.secondary }]}>
               day streak
             </Text>
+            {graceAvailable && streak.current > 0 && (
+              <Text style={[s.graceIndicator, { color: theme.text.tertiary }]}>grace ✓</Text>
+            )}
           </View>
           <View style={[s.statDivider, { backgroundColor: theme.ui.border }]} />
           <View style={s.statItem}>
@@ -95,19 +116,39 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
               total wins
             </Text>
           </View>
-          <TouchableOpacity
-            style={s.historyButton}
-            onPress={onNavigateHistory}
-            accessibilityLabel="View history"
-          >
-            <Text style={[s.historyIcon, { color: theme.text.secondary }]}>☰</Text>
-          </TouchableOpacity>
+          <View style={s.navButtons}>
+            {completedCount > 0 && (
+              <TouchableOpacity
+                style={s.iconButton}
+                onPress={onNavigateArchive}
+                accessibilityLabel="View past seasons"
+              >
+                <Text style={[s.iconText, { color: theme.text.secondary }]}>🌿</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={s.iconButton}
+              onPress={onNavigateHistory}
+              accessibilityLabel="View history"
+            >
+              <Text style={[s.historyIcon, { color: theme.text.secondary }]}>☰</Text>
+            </TouchableOpacity>
+          </View>
           {__DEV__ && onDevReset && (
             <TouchableOpacity style={s.devResetButton} onPress={onDevReset}>
               <Text style={s.devResetText}>↺</Text>
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Streak reset gentle message */}
+        {streakResetMsg && (
+          <View style={[s.resetBanner, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
+            <Text style={[s.resetMsg, { color: theme.text.secondary }]}>
+              You missed a day. It happens. Your streak resets but your garden stays.
+            </Text>
+          </View>
+        )}
 
         {/* Garden canvas */}
         <View style={{ flex: 1 }}>
@@ -147,6 +188,15 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
         onClose={() => setSelectedPlant(null)}
         onDeleteWin={handleDeleteWin}
       />
+
+      {/* Season transition overlay — renders over everything, auto-dismisses */}
+      {transitionSeason !== null && (
+        <SeasonTransitionOverlay
+          seasonNumber={transitionSeason}
+          theme={theme}
+          onDone={() => setTransitionSeason(null)}
+        />
+      )}
     </View>
   )
 }
@@ -174,14 +224,26 @@ const makeStyles = (theme: Theme) =>
       textTransform: 'uppercase',
       letterSpacing: 0.8,
     },
+    graceIndicator: {
+      fontSize: 10,
+      marginTop: 2,
+      letterSpacing: 0.4,
+    },
     statDivider: {
       width: 1,
       height: 36,
       marginHorizontal: 12,
     },
-    historyButton: {
+    navButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginLeft: 4,
+    },
+    iconButton: {
       padding: 8,
-      marginLeft: 8,
+    },
+    iconText: {
+      fontSize: 18,
     },
     historyIcon: {
       fontSize: 22,
@@ -210,6 +272,18 @@ const makeStyles = (theme: Theme) =>
       fontSize: 32,
       lineHeight: 36,
       fontWeight: '300',
+    },
+    resetBanner: {
+      marginHorizontal: 16,
+      marginTop: 10,
+      padding: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+    },
+    resetMsg: {
+      fontSize: 12,
+      lineHeight: 18,
+      textAlign: 'center',
     },
     devResetButton: {
       marginLeft: 8,
