@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls D:/AppStore/quiet-wins/*.js D:/AppStore/quiet-wins/*.cjs)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

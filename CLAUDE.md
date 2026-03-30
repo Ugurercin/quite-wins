@@ -598,3 +598,225 @@ When a new season begins, show a one-time message over the garden:
 - Deliver at user's chosen time (set during onboarding)
 - No notification on days the user has already logged 3 wins — they're done, don't bother them
 - If grace skip is active (missed yesterday, streak saved) — use notification #3 or #5 specifically, they're the gentlest
+
+---
+
+---
+
+# Component Rules
+
+## General
+- Never use `StyleSheet.create()` with hardcoded colors — always use `useTheme()` inside the component
+- Keep every component under 150 lines — if it grows larger, split into smaller components
+- No business logic inside components — extract into custom hooks under `src/hooks/`
+- No inline styles beyond layout (flex, margin, padding) — colors always from theme
+- Every screen component lives in `src/screens/`, every reusable UI piece in `src/components/`
+
+## Naming
+- Screens: `PascalCase` + Screen suffix → `GardenScreen.tsx`, `HistoryScreen.tsx`
+- Components: `PascalCase` → `WinCard.tsx`, `PlantSprite.tsx`
+- Hooks: `camelCase` + use prefix → `useWins.ts`, `useStreak.ts`, `useTheme.ts`
+- Utils: `camelCase` → `emojiColorMap.ts`, `gardenPositions.ts`
+
+## Hooks
+- All data fetching and storage logic lives in hooks
+- All streak/grace skip calculations live in `src/hooks/useStreak.ts`
+- All win CRUD operations live in `src/hooks/useWins.ts`
+- Garden position calculations live in `src/utils/gardenPositions.ts`
+
+## Skia (garden canvas)
+- All Skia drawing code lives in `src/components/garden/`
+- Never mix Skia and React Native Views in the same component
+- Plant rendering logic split by stage: `Sprout.tsx`, `Seedling.tsx`, `Growing.tsx`, `Bloomed.tsx`, `ElderTree.tsx`
+- Colors always from `theme.plant.*` — never hardcoded in Skia components
+
+---
+
+---
+
+# Data Models
+
+All data is stored locally using AsyncStorage. No backend. No user accounts.
+
+## Win
+```typescript
+interface Win {
+  id: string           // uuid — e.g. "a1b2c3d4"
+  text: string         // user's win text — e.g. "Finally cleaned my desk"
+  emoji: string        // single emoji — e.g. "✨"
+  createdAt: string    // ISO date string — e.g. "2026-03-30T21:00:00.000Z"
+  seasonId: string     // which season this win belongs to — e.g. "season_1"
+}
+```
+
+## Plant
+```typescript
+interface Plant {
+  id: string           // uuid
+  slotIndex: number    // position in garden (0 = center, spirals outward)
+  stage: 0 | 1 | 2 | 3 | 4  // 0 = empty slot, 4 = fully bloomed
+  winIds: string[]     // ordered list of win IDs that grew this plant (max 4)
+  isElder: boolean     // true = Elder Tree, permanent, not connected to wins
+  seasonId: string     // which season this plant belongs to
+}
+```
+
+## Season
+```typescript
+interface Season {
+  id: string           // e.g. "season_1", "season_2"
+  number: number       // 1, 2, 3...
+  startedAt: string    // ISO date string
+  completedAt: string | null  // null if current season
+  totalWins: number    // snapshot of wins when season ended
+}
+```
+
+## Streak
+```typescript
+interface StreakState {
+  current: number          // current streak in days
+  longest: number          // all-time longest streak
+  lastLoggedDate: string   // ISO date string of last win — e.g. "2026-03-30"
+  graceUsedThisWeek: boolean  // resets every Monday
+  graceWeekStart: string   // ISO date of the Monday this grace period started
+}
+```
+
+## Storage Keys
+```typescript
+const STORAGE_KEYS = {
+  WINS: 'qw_wins',               // Win[]
+  PLANTS: 'qw_plants',           // Plant[]
+  SEASONS: 'qw_seasons',         // Season[]
+  STREAK: 'qw_streak',           // StreakState
+  THEME_MODE: 'qw_theme_mode',   // 'light' | 'dark' | 'system'
+  ONBOARDED: 'qw_onboarded',     // boolean — has user completed onboarding
+  NOTIFICATION_TIME: 'qw_notif_time',  // e.g. "21:00"
+}
+```
+
+---
+
+---
+
+# TASKS.md — Phase 1
+
+Work through these in order. Check off each task before moving to the next. Do not start Phase 2 until all Phase 1 tasks are complete.
+
+## Setup
+- [ ] Confirm `src/theme/theme.ts` exists with `lightTheme`, `darkTheme`, and `Theme` type
+- [ ] Confirm `src/theme/ThemeContext.tsx` exists with `ThemeProvider` and `useTheme()`
+- [ ] Confirm `src/theme/index.ts` exports both
+- [ ] Confirm `App.tsx` is wrapped in `<ThemeProvider>`
+- [ ] Confirm `STORAGE_KEYS` constants are defined in `src/storage/keys.ts`
+
+## Data layer
+- [ ] Create `src/hooks/useWins.ts` — addWin, deleteWin, getWinsForDay, getAllWins
+- [ ] Create `src/hooks/usePlants.ts` — getPlants, growPlant, shrinkPlant, addElderTree
+- [ ] Create `src/hooks/useStreak.ts` — getCurrentStreak, updateStreak, checkGrace
+- [ ] Create `src/hooks/useSeasons.ts` — getCurrentSeason, completeSeason
+- [ ] Create `src/utils/gardenPositions.ts` — pre-calculated list of 10 slot positions spiraling from center
+- [ ] Create `src/utils/emojiColorMap.ts` — emojiToFlowerColor(emoji, theme)
+
+## Onboarding
+- [ ] Create `src/screens/OnboardingScreen.tsx` with 4 steps managed internally
+- [ ] Step 1: App name + tagline + "Get started" button
+- [ ] Step 2: Notification time picker (Morning / Evening / Custom / Skip)
+- [ ] Step 3: First win input (text + emoji picker + "Plant it" button)
+- [ ] Step 4: Garden with first plant visible + stats (1 win, 1 day streak) + "Go to my garden"
+- [ ] On complete: set `STORAGE_KEYS.ONBOARDED` to true, save notification time, save first win
+- [ ] App.tsx checks `ONBOARDED` on launch — shows OnboardingScreen or GardenScreen
+
+## Garden screen (static — no animations yet)
+- [ ] Create `src/screens/GardenScreen.tsx`
+- [ ] Stats row at top: streak + total wins, both from theme.stats.*
+- [ ] Garden area: renders plants based on current Plant[] data, using Skia canvas
+- [ ] Each plant renders correct stage (Sprout / Seedling / Growing / Bloomed / Elder)
+- [ ] "+" button at bottom — opens LogWinSheet
+- [ ] History icon in top corner — navigates to HistoryScreen
+- [ ] All colors from theme — zero hardcoded values
+
+## Plant sprites (static — no animations yet)
+- [ ] Create `src/components/garden/Sprout.tsx` — stage 1 Skia component
+- [ ] Create `src/components/garden/Seedling.tsx` — stage 2 Skia component
+- [ ] Create `src/components/garden/Growing.tsx` — stage 3 Skia component
+- [ ] Create `src/components/garden/Bloomed.tsx` — stage 4 Skia component
+- [ ] Create `src/components/garden/ElderTree.tsx` — permanent elder, visually distinct
+- [ ] Each sprite receives `x`, `y`, `theme` as props — no internal theme access
+
+## Log win bottom sheet
+- [ ] Create `src/components/LogWinSheet.tsx`
+- [ ] Slides up from bottom, garden visible behind it
+- [ ] Text input: "What did you win today?"
+- [ ] Emoji quick-pick row (8–10 common emojis) + "more" option
+- [ ] "Plant it" button — disabled if text is empty
+- [ ] On submit: calls addWin, calls growPlant, closes sheet
+- [ ] If 3 wins already logged today: show message instead of form — *"You've planted 3 wins today. Come back tomorrow."*
+
+## Local storage
+- [ ] All hooks read and write via AsyncStorage using STORAGE_KEYS
+- [ ] On first launch (no data): initialize empty wins [], plants [], season_1, streak state
+- [ ] Verify data persists across app restarts
+
+## Checklist before Phase 2
+- [ ] Can complete full onboarding flow
+- [ ] Can log a win from garden screen
+- [ ] Plant appears in correct slot at correct stage
+- [ ] Stats update after logging
+- [ ] Data persists after closing and reopening app
+- [ ] All screens use theme colors — no hardcoded hex values anywhere
+
+---
+
+---
+
+# DECISIONS.md
+
+Key decisions made during planning and the reasoning behind them. Read this before making any judgment calls during development.
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Framework | Expo + React Native | One codebase for iOS + Android, fastest path to both stores |
+| Graphics | React Native Skia | Best performance for custom 2D garden rendering on both platforms |
+| Storage | AsyncStorage / SQLite | No backend needed, fully offline, no user accounts, no privacy concerns |
+| Theme | Dark forest green always | Core identity — both light and dark modes are green, never white or gray |
+| Win limit | 1–3 per day | Keeps logging lightweight, prevents the app feeling like a task manager |
+| Plant growth | 4 wins = full bloom | Simple, achievable, satisfying — not too fast, not too slow |
+| Garden size | 8–10 slots | Full garden in 32–40 wins — achievable in ~2 months, earns a season reset |
+| Seasons | Reset at full garden | Treats each season as a life chapter, old gardens saved as snapshots forever |
+| Elder Tree | Permanent, center slot | Rewards completing a season, makes returning users feel legacy and progress |
+| Delete behavior | Plant shrinks, no rearrange | Gaps are honest — rearranging feels punishing and confusing |
+| Streak grace | 1 skip per week | Forgiving without making streaks meaningless |
+| Streak reset tone | Gentle, never punishing | Garden stays intact — only the number resets, not the emotional progress |
+| Monetization | Free + $1.99 one-time IAP | No subscription guilt, impulse-buy price, unlocks all visualizations forever |
+| Notifications | 10 rotating, dark humor | Avoids notification fatigue, matches the app's personality |
+| No notification if 3 wins logged | Skip notification | Respects the user — they're done for the day, don't bother them |
+| Onboarding | 4 screens, first win required | User feels the app before leaving onboarding — retention from minute one |
+
+---
+
+---
+
+# Phase Transition Rules
+
+## Critical rule — never auto-advance phases
+
+After completing every task in a phase checklist, Claude Code must STOP and ask:
+
+> "Phase X is complete. All tasks are checked off. Should I move on to Phase Y?"
+
+Do not begin any Phase Y work until the user explicitly confirms. This includes:
+- Do not install new dependencies for the next phase
+- Do not create new files for the next phase
+- Do not refactor existing code in anticipation of the next phase
+
+Wait for a clear "yes" or "go ahead" before proceeding.
+
+## If a task is blocked
+
+If a task cannot be completed due to a technical issue, missing decision, or unclear requirement — stop and ask. Do not skip it, do not work around it silently, do not make assumptions. State exactly what is blocking and what options exist.
+
+## If something is unclear
+
+If any instruction in this file is ambiguous — ask before writing code. A 30 second question saves hours of rework.
