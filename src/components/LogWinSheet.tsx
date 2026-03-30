@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { useTheme } from '@/theme'
 import { Theme } from '@/theme/theme'
+import { useAudio } from '@/audio/useAudio'
 
 const QUICK_EMOJIS = ['✨', '💪', '📚', '🎯', '🏃', '⭐', '❤️', '🚀', '🌟', '🎉']
 
@@ -25,6 +26,7 @@ interface Props {
 
 const LogWinSheet = ({ visible, todayWinCount, onSubmit, onClose }: Props) => {
   const { theme } = useTheme()
+  const { playSFX } = useAudio()
   const [text, setText] = useState('')
   const [emoji, setEmoji] = useState('✨')
 
@@ -33,9 +35,16 @@ const LogWinSheet = ({ visible, todayWinCount, onSubmit, onClose }: Props) => {
 
   const handleSubmit = () => {
     if (!text.trim()) return
+
+    // 1. Tap sound fires immediately on button press
+    playSFX('tap')
+
     onSubmit(text.trim(), emoji)
     setText('')
     setEmoji('✨')
+
+    // 2. Tree grow sound plays shortly after — gives the plant time to appear
+    setTimeout(() => playSFX('tree_grow'), 400)
   }
 
   return (

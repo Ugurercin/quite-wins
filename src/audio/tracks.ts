@@ -10,14 +10,20 @@ export const MUSIC_TRACKS = {
 
 export type MusicContext = keyof typeof MUSIC_TRACKS
 
-// SFX — uncomment as you add files
+// ─── SFX ────────────────────────────────────────────────────────────────────
+// Swap out any path below to experiment with different sounds.
+
 export const SFX_TRACKS = {
-  // plant_it: require('../../assets/audio/sfx/plant_it.mp3'),
-  // stage_grow: require('../../assets/audio/sfx/stage_grow.mp3'),
+  // Plays when user taps "Plant it" button
+  tap: require('../../assets/audio/sfx/level_up.mp3'),
+
+  // Plays after the plant grows a stage
+  tree_grow: require('../../assets/audio/sfx/tree_grow.mp3'),
+
+  // Uncomment as you add more files:
   // bloom: require('../../assets/audio/sfx/bloom.mp3'),
   // win_delete: require('../../assets/audio/sfx/win_delete.mp3'),
   // season_complete: require('../../assets/audio/sfx/season_complete.mp3'),
-  // onboarding_start: require('../../assets/audio/sfx/onboarding_start.mp3'),
 } as const
 
 export type SFXName = keyof typeof SFX_TRACKS
