@@ -129,7 +129,49 @@ export const useStreak = () => {
     return { reset: true, graceApplied: false }
   }, [])
 
+  // Recalculate streak from scratch after a win is deleted.
+  // Accepts ISO date strings (win.createdAt values) for the remaining wins.
+  const recalculateStreak = useCallback(async (winDates: string[]): Promise<void> => {
+    // Unique calendar days that still have wins, ascending
+    const days = [...new Set(winDates.map(d => d.split('T')[0]))].sort()
+    const s = await loadStreak()
+
+    if (days.length === 0) {
+      const updated: StreakState = { ...s, current: 0, lastLoggedDate: '' }
+      await saveStreak(updated)
+      setStreak(updated)
+      return
+    }
+
+    const lastDate = days[days.length - 1]
+    const today = toDateStr(new Date())
+
+    // Count consecutive days working backwards from lastDate
+    let current = 1
+    for (let i = days.length - 1; i > 0; i--) {
+      if (daysBetween(days[i - 1], days[i]) === 1) {
+        current++
+      } else {
+        break
+      }
+    }
+
+    // If lastDate is more than 1 day ago the streak has expired
+    if (daysBetween(lastDate, today) > 1) {
+      current = 0
+    }
+
+    const updated: StreakState = {
+      ...s,
+      current,
+      longest: Math.max(s.longest, current),
+      lastLoggedDate: lastDate,
+    }
+    await saveStreak(updated)
+    setStreak(updated)
+  }, [])
+
   const getCurrentStreak = useCallback((): number => streak.current, [streak])
 
-  return { streak, loading, updateStreak, checkGrace, getCurrentStreak }
+  return { streak, loading, updateStreak, checkGrace, getCurrentStreak, recalculateStreak }
 }

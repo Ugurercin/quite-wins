@@ -14,8 +14,10 @@ import { useWins } from '@/hooks/useWins'
 import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
 import { useSeasons } from '@/hooks/useSeasons'
+import { Plant } from '@/hooks/usePlants'
 import GardenCanvas from '@/components/garden/GardenCanvas'
 import LogWinSheet from '@/components/LogWinSheet'
+import PlantPopup from '@/components/PlantPopup'
 
 interface Props {
   onNavigateHistory: () => void
@@ -25,11 +27,13 @@ interface Props {
 const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
   const { theme } = useTheme()
   const { width, height } = useWindowDimensions()
-  const { wins, addWin } = useWins()
-  const { plants, growPlant } = usePlants()
-  const { streak, updateStreak } = useStreak()
+  const { wins, addWin, deleteWin } = useWins()
+  const { plants, growPlant, shrinkPlant } = usePlants()
+  const { streak, updateStreak, recalculateStreak } = useStreak()
   const { getCurrentSeason } = useSeasons()
+
   const [sheetVisible, setSheetVisible] = useState(false)
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
 
   const today = new Date().toISOString().split('T')[0]
   const todayWins = wins.filter(w => w.createdAt.startsWith(today))
@@ -42,6 +46,28 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
     await growPlant(win.id, currentSeason.id)
     await updateStreak()
     setSheetVisible(false)
+  }
+
+  const handlePlantTap = (plant: Plant) => {
+    setSelectedPlant(plant)
+  }
+
+  const handleDeleteWin = async (winId: string) => {
+    // Delete the win from storage
+    await deleteWin(winId)
+
+    // Shrink the owning plant (returns updated plants list)
+    const updatedPlants = await shrinkPlant(winId)
+
+    // Silent streak recalculation from remaining wins
+    const remainingWins = wins.filter(w => w.id !== winId)
+    await recalculateStreak(remainingWins.map(w => w.createdAt))
+
+    // Keep popup open with updated plant, or close if plant disappeared
+    if (selectedPlant) {
+      const stillExists = updatedPlants.find(p => p.id === selectedPlant.id)
+      setSelectedPlant(stillExists ?? null)
+    }
   }
 
   const s = makeStyles(theme)
@@ -91,6 +117,7 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
             theme={theme}
             plants={plants}
             wins={wins}
+            onPlantTap={handlePlantTap}
           />
         </View>
 
@@ -111,6 +138,14 @@ const GardenScreen = ({ onNavigateHistory, onDevReset }: Props) => {
         todayWinCount={todayWins.length}
         onSubmit={handleAddWin}
         onClose={() => setSheetVisible(false)}
+      />
+
+      <PlantPopup
+        plant={selectedPlant}
+        wins={wins}
+        theme={theme}
+        onClose={() => setSelectedPlant(null)}
+        onDeleteWin={handleDeleteWin}
       />
     </View>
   )
