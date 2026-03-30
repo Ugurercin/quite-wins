@@ -4,6 +4,7 @@ import {
   useDerivedValue,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
   Easing,
@@ -21,15 +22,14 @@ const PETAL_R = 9
 const PETAL_SPREAD = PETAL_R + 3
 const DIAG = 0.7
 
-// Stage 4 — Fully flowering plant. Most beautiful state.
-// Bloom animation: petals scale out from center over ~2 seconds on mount.
+// Stage 4 — Fully flowering plant, now with layered glow and a gentle living pulse.
 const Bloomed = ({ x, y, theme, accentColor }: Props) => {
   const stemHeight = 72
   const flowerCy = y - stemHeight - 8
   const flowerColor = accentColor ?? theme.accent.amber
 
-  // Bloom progress: 0 → 1 over ~2 seconds with elastic overshoot
   const bloom = useSharedValue(0)
+  const pulse = useSharedValue(0)
 
   useEffect(() => {
     bloom.value = withSequence(
@@ -39,22 +39,27 @@ const Bloomed = ({ x, y, theme, accentColor }: Props) => {
         withTiming(1, { duration: 1800, easing: Easing.out(Easing.back(1.2)) })
       )
     )
+
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      false
+    )
   }, [])
 
-  // Derived animated values for Skia props
   const pr = useDerivedValue(() => bloom.value * PETAL_R)
   const prSmall = useDerivedValue(() => bloom.value * PETAL_R * 0.85)
-  const spread = useDerivedValue(() => bloom.value * PETAL_SPREAD)
   const centerR = useDerivedValue(() => bloom.value * 7)
   const highlightR = useDerivedValue(() => bloom.value * 3.5)
 
-  // Petal positions — derived from spread
   const petalN_cy = useDerivedValue(() => flowerCy - bloom.value * PETAL_SPREAD)
   const petalS_cy = useDerivedValue(() => flowerCy + bloom.value * PETAL_SPREAD)
   const petalE_cx = useDerivedValue(() => x + bloom.value * PETAL_SPREAD)
   const petalW_cx = useDerivedValue(() => x - bloom.value * PETAL_SPREAD)
 
-  const diagSpread = useDerivedValue(() => bloom.value * PETAL_SPREAD * DIAG)
   const petalNE_cx = useDerivedValue(() => x + bloom.value * PETAL_SPREAD * DIAG)
   const petalNE_cy = useDerivedValue(() => flowerCy - bloom.value * PETAL_SPREAD * DIAG)
   const petalNW_cx = useDerivedValue(() => x - bloom.value * PETAL_SPREAD * DIAG)
@@ -64,7 +69,13 @@ const Bloomed = ({ x, y, theme, accentColor }: Props) => {
   const petalSW_cx = useDerivedValue(() => x - bloom.value * PETAL_SPREAD * DIAG)
   const petalSW_cy = useDerivedValue(() => flowerCy + bloom.value * PETAL_SPREAD * DIAG)
 
-  // Static paths — stem and leaves don't animate
+  const glowR1 = useDerivedValue(() => bloom.value * (18 + pulse.value * 3))
+  const glowR2 = useDerivedValue(() => bloom.value * (28 + pulse.value * 5))
+  const centerGlowR = useDerivedValue(() => bloom.value * (12 + pulse.value * 2))
+  const glowOpacity1 = useDerivedValue(() => bloom.value * (0.16 + pulse.value * 0.04))
+  const glowOpacity2 = useDerivedValue(() => bloom.value * (0.07 + pulse.value * 0.03))
+  const centerGlowOpacity = useDerivedValue(() => bloom.value * (0.15 + pulse.value * 0.04))
+
   const stemPath = Skia.Path.Make()
   stemPath.moveTo(x, y)
   stemPath.cubicTo(x - 2, y - 24, x + 3, y - 48, x, y - stemHeight)
@@ -107,37 +118,48 @@ const Bloomed = ({ x, y, theme, accentColor }: Props) => {
     <>
       {/* Soil mound */}
       <Path path={moundPath} color={theme.plant.bodyDark} style="stroke" strokeWidth={5} strokeCap="round" />
+
       {/* Stem */}
       <Path path={stemPath} color={theme.plant.trunk} style="stroke" strokeWidth={4} strokeCap="round" />
-      {/* Lower leaves */}
+
+      {/* Leaves */}
       <Path path={lowerLeftLeaf} color={theme.plant.bodyMid} style="fill" />
       <Path path={lowerRightLeaf} color={theme.plant.bodyMid} style="fill" />
       <Line p1={vec(x, y - 26)} p2={vec(x - 16, y - 33)} color={theme.plant.bodyDark} strokeWidth={0.7} />
       <Line p1={vec(x, y - 26)} p2={vec(x + 16, y - 33)} color={theme.plant.bodyDark} strokeWidth={0.7} />
-      {/* Mid leaves */}
+
       <Path path={midLeftLeaf} color={theme.plant.bodyLight} style="fill" />
       <Path path={midRightLeaf} color={theme.plant.bodyLight} style="fill" />
       <Line p1={vec(x, y - 42)} p2={vec(x - 13, y - 50)} color={theme.plant.bodyMid} strokeWidth={0.7} />
       <Line p1={vec(x, y - 42)} p2={vec(x + 13, y - 50)} color={theme.plant.bodyMid} strokeWidth={0.7} />
-      {/* Upper leaves */}
+
       <Path path={upperLeftLeaf} color={theme.plant.sprout} style="fill" />
       <Path path={upperRightLeaf} color={theme.plant.sprout} style="fill" />
 
-      {/* Flower — 8 petals with bloom animation */}
+      {/* Flower aura */}
+      <Circle cx={x} cy={flowerCy} r={glowR2} color={flowerColor} opacity={glowOpacity2} />
+      <Circle cx={x} cy={flowerCy} r={glowR1} color={flowerColor} opacity={glowOpacity1} />
+      <Circle cx={x} cy={flowerCy} r={centerGlowR} color={theme.plant.bloom} opacity={centerGlowOpacity} />
+
       {/* Cardinal petals */}
       <Circle cx={x} cy={petalN_cy} r={pr} color={flowerColor} />
       <Circle cx={x} cy={petalS_cy} r={pr} color={flowerColor} />
       <Circle cx={petalE_cx} cy={flowerCy} r={pr} color={flowerColor} />
       <Circle cx={petalW_cx} cy={flowerCy} r={pr} color={flowerColor} />
+
       {/* Diagonal petals */}
-      <Circle cx={petalNE_cx} cy={petalNE_cy} r={prSmall} color={flowerColor} opacity={0.85} />
-      <Circle cx={petalNW_cx} cy={petalNW_cy} r={prSmall} color={flowerColor} opacity={0.85} />
-      <Circle cx={petalSE_cx} cy={petalSE_cy} r={prSmall} color={flowerColor} opacity={0.85} />
-      <Circle cx={petalSW_cx} cy={petalSW_cy} r={prSmall} color={flowerColor} opacity={0.85} />
+      <Circle cx={petalNE_cx} cy={petalNE_cy} r={prSmall} color={flowerColor} opacity={0.88} />
+      <Circle cx={petalNW_cx} cy={petalNW_cy} r={prSmall} color={flowerColor} opacity={0.88} />
+      <Circle cx={petalSE_cx} cy={petalSE_cy} r={prSmall} color={flowerColor} opacity={0.88} />
+      <Circle cx={petalSW_cx} cy={petalSW_cy} r={prSmall} color={flowerColor} opacity={0.88} />
 
       {/* Flower center */}
       <Circle cx={x} cy={flowerCy} r={centerR} color={theme.plant.bloom} />
-      <Circle cx={x - 1} cy={flowerCy - 1} r={highlightR} color={theme.plant.bodyLight} opacity={0.5} />
+      <Circle cx={x - 1} cy={flowerCy - 1} r={highlightR} color={theme.plant.bodyLight} opacity={0.6} />
+
+      {/* Tiny sparkle motes */}
+      <Circle cx={x + 15} cy={flowerCy - 10} r={1.4} color={theme.plant.bodyLight} opacity={0.4} />
+      <Circle cx={x - 13} cy={flowerCy + 8} r={1.1} color={flowerColor} opacity={0.25} />
 
       {/* Ground accent dot */}
       <Circle cx={x} cy={y - 2} r={3} color={flowerColor} opacity={0.7} />
