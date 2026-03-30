@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { Plant } from '@/hooks/usePlants'
 import GardenCanvas from '@/components/garden/GardenCanvas'
 import LogWinSheet from '@/components/LogWinSheet'
 import PlantPopup from '@/components/PlantPopup'
-import SeasonTransitionOverlay from '@/components/SeasonTransitionOverlay'
+import SeasonRecapOverlay from '@/components/SeasonRecapOverlay'
 
 interface Props {
   onNavigateHistory: () => void
@@ -30,14 +30,23 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
   const { theme } = useTheme()
   const { width, height } = useWindowDimensions()
   const { wins, addWin, deleteWin } = useWins()
-  const { plants, growPlant, shrinkPlant, addElderTrees, clearNonElderPlants } = usePlants()
+  const { plants, growPlant, shrinkPlant, addElderTrees, clearAllPlants } = usePlants()
   const { streak, updateStreak, recalculateStreak, graceAvailable } = useStreak()
   const { seasons, getCurrentSeason, completeSeason } = useSeasons()
 
   const [sheetVisible, setSheetVisible] = useState(false)
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
-  const [transitionSeason, setTransitionSeason] = useState<number | null>(null)
   const [streakResetMsg, setStreakResetMsg] = useState(false)
+
+  // Recap overlay state
+  const [recapVisible, setRecapVisible] = useState(false)
+  const [recapSeasonNumber, setRecapSeasonNumber] = useState(0)
+  const [recapTotalWins, setRecapTotalWins] = useState(0)
+
+  // Store season-end data in refs so onReady closure never goes stale
+  const pendingUpdatedPlants = useRef<Plant[]>([])
+  const pendingTotalWins = useRef(0)
+  const pendingCompletedSeasonCount = useRef(0)
 
   const today = new Date().toISOString().split('T')[0]
   const todayWins = wins.filter(w => w.createdAt.startsWith(today))
@@ -53,16 +62,29 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
     await updateStreak()
     setSheetVisible(false)
 
-    // Check season completion after the plant has grown
     if (isSeasonComplete(updatedPlants)) {
-      const nextSeason = await completeSeason(totalWins + 1, updatedPlants)
-      // Clear regular plants — only Elder Trees carry into the new season
-      await clearNonElderPlants()
-      // Add elder trees equal to number of completed seasons (one per completed season)
-      const elderCount = seasons.filter(s => s.completedAt !== null).length + 1
-      await addElderTrees(elderCount, nextSeason.id)
-      setTransitionSeason(nextSeason.number)
+      const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
+      const totalWinsSnapshot = wins.length + 1
+
+      // Stash values in refs so onReady never closes over stale state
+      pendingUpdatedPlants.current = updatedPlants
+      pendingTotalWins.current = totalWinsSnapshot
+      pendingCompletedSeasonCount.current = currentSeason.number
+
+      setRecapSeasonNumber(nextSeasonNumber - 1)
+      setRecapTotalWins(totalWinsSnapshot)
+      setRecapVisible(true)
     }
+  }
+
+  const handleRecapReady = async () => {
+    setRecapVisible(false)
+    const nextSeason = await completeSeason(
+      pendingTotalWins.current,
+      pendingUpdatedPlants.current,
+    )
+    await clearAllPlants()
+    await addElderTrees(pendingCompletedSeasonCount.current, nextSeason.id)
   }
 
   const handlePlantTap = (plant: Plant) => {
@@ -189,12 +211,12 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
         onDeleteWin={handleDeleteWin}
       />
 
-      {/* Season transition overlay — renders over everything, auto-dismisses */}
-      {transitionSeason !== null && (
-        <SeasonTransitionOverlay
-          seasonNumber={transitionSeason}
+      {recapVisible && (
+        <SeasonRecapOverlay
+          seasonNumber={recapSeasonNumber}
+          totalWins={recapTotalWins}
           theme={theme}
-          onDone={() => setTransitionSeason(null)}
+          onReady={handleRecapReady}
         />
       )}
     </View>

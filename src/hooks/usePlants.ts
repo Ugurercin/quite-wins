@@ -42,13 +42,10 @@ export const usePlants = () => {
     })
   }, [])
 
-  // Grow the current active plant by one stage, adding the win.
-  // If no active plant exists (or current plant is fully bloomed), creates a new one.
   const growPlant = useCallback(
     async (winId: string, seasonId: string): Promise<Plant[]> => {
       const current = [...plants]
 
-      // Find an active (non-elder, not fully bloomed) plant for this season
       const activePlant = current.find(
         p => !p.isElder && p.stage < 4 && p.seasonId === seasonId,
       )
@@ -61,7 +58,6 @@ export const usePlants = () => {
           return { ...p, stage: newStage, winIds: [...p.winIds, winId] }
         })
       } else {
-        // Create new plant in next available slot
         const newPlant: Plant = {
           id: generateId(),
           slotIndex: nextSlotIndex(current),
@@ -80,7 +76,6 @@ export const usePlants = () => {
     [plants],
   )
 
-  // Shrink the plant that owns this win by one stage.
   const shrinkPlant = useCallback(
     async (winId: string): Promise<Plant[]> => {
       const current = [...plants]
@@ -92,7 +87,6 @@ export const usePlants = () => {
       const newStage = Math.max(0, target.stage - 1) as 0 | 1 | 2 | 3 | 4
 
       if (newStage === 0) {
-        // Remove the plant entirely (keep gap — don't rearrange)
         updated = current.filter(p => p.id !== target.id)
       } else {
         updated = current.map(p =>
@@ -126,11 +120,10 @@ export const usePlants = () => {
     [plants],
   )
 
-  // Add N elder trees in a single AsyncStorage write, avoiding stale-closure issues
-  // that would occur with N sequential addElderTree calls.
   const addElderTrees = useCallback(
     async (count: number, seasonId: string): Promise<Plant[]> => {
-      let working = [...plants]
+      const current = await loadPlants()
+      let working = [...current]
       for (let i = 0; i < count; i++) {
         const elder: Plant = {
           id: generateId(),
@@ -146,13 +139,14 @@ export const usePlants = () => {
       setPlants(working)
       return working
     },
-    [plants],
+    [],
   )
 
-  // Called on season transition — removes all non-elder plants so the new season
-  // starts with only Elder Trees. Elder Trees carry forward permanently.
-  // Reads from AsyncStorage directly to avoid using a stale state closure
-  // (growPlant may have set new state that hasn't re-rendered yet).
+  const clearAllPlants = useCallback(async (): Promise<void> => {
+    await savePlants([])
+    setPlants([])
+  }, [])
+
   const clearNonElderPlants = useCallback(async (): Promise<Plant[]> => {
     const current = await loadPlants()
     const eldersOnly = current.filter(p => p.isElder)
@@ -161,5 +155,5 @@ export const usePlants = () => {
     return eldersOnly
   }, [])
 
-  return { plants, loading, growPlant, shrinkPlant, addElderTree, addElderTrees, clearNonElderPlants }
+  return { plants, loading, growPlant, shrinkPlant, addElderTree, addElderTrees, clearAllPlants, clearNonElderPlants }
 }

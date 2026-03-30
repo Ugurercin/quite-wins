@@ -9,7 +9,7 @@ import { Plant } from '@/hooks/usePlants'
 export const isSeasonComplete = (plants: Plant[]): boolean => {
   const elders = plants.filter(p => p.isElder)
   const nonElders = plants.filter(p => !p.isElder && p.stage > 0)
-const slotsNeeded = __DEV__ ? 1 : (10 - elders.length)
+const slotsNeeded = __DEV__ ? 1: (10 - elders.length)
   return nonElders.length >= slotsNeeded && nonElders.every(p => p.stage === 4)
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useWins } from '@/hooks/useWins'
 import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
 import { useSeasons } from '@/hooks/useSeasons'
+import { useAudio } from '@/audio/useAudio'
 import GardenCanvas from '@/components/garden/GardenCanvas'
 
 const QUICK_EMOJIS = ['✨', '💪', '📚', '🎯', '🏃', '⭐', '❤️', '🚀', '🌟', '🎉']
@@ -35,6 +36,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
   const { plants, growPlant } = usePlants()
   const { updateStreak } = useStreak()
   const { getCurrentSeason } = useSeasons()
+  const { playMusic, stopMusic } = useAudio()
 
   const [step, setStep] = useState(1)
   const [notifOption, setNotifOption] = useState<NotifOption | null>(null)
@@ -44,6 +46,15 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   const currentSeason = getCurrentSeason()
   const s = makeStyles(theme)
+
+  // Start onboarding music as soon as the screen mounts
+  useEffect(() => {
+    playMusic('onboarding')
+    return () => {
+      // Stop music when onboarding unmounts (garden screen takes over)
+      stopMusic()
+    }
+  }, [])
 
   const handleNotifNext = async () => {
     if (!notifOption) return
@@ -69,6 +80,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   const handleComplete = async () => {
     await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDED, 'true')
+    // stopMusic is called by the useEffect cleanup above when this component unmounts
     onComplete()
   }
 
