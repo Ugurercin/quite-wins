@@ -65,28 +65,73 @@ Every 4 wins in a slot = one fully bloomed plant.
 
 | Log # | Stage | Description |
 |-------|-------|-------------|
-| 1 | Sprout | Tiny stem and bud, just appeared |
-| 2 | Seedling | Small plant, first leaves appear |
-| 3 | Growing | Fuller, bushier, getting beautiful |
-| 4 | Bloomed | Fully flowering, most beautiful state |
+| 1 | Stage 1 | Tiny — just appeared |
+| 2 | Stage 2 | Small, first features appear |
+| 3 | Stage 3 | Fuller, getting beautiful |
+| 4 | Stage 4 | Fully bloomed — most beautiful state |
 
-- When stage 4 is reached → **bloom animation plays** (petals open, ~2 seconds)
-- After bloom → new plant slot opens beside it, cycle restarts
-- Garden fits **8–10 plant slots max**
-- All plant positions are **pre-calculated** at build time, spiraling outward from center
-- No random placement, no collision detection — just next position in the list
+- When stage 4 is reached → **bloom animation plays** (~2 seconds, varies by plant type)
+- After bloom → new plant slot opens, cycle restarts
+- Garden fits **10 plant slots** (7 regular + 3 elder)
+- All plant positions are **pre-calculated** — see Garden Positions section below
+
+### Plant Types
+Three plant types exist, randomly assigned when a new slot opens:
+
+| Type | Stage 1 | Stage 2 | Stage 3 | Stage 4 | Elder |
+|------|---------|---------|---------|---------|-------|
+| **Flower** | Tiny stem + bud | Stem + first leaves | Fuller, bushier, bud forming | Full bloom, animated petals open | ElderFlower — wide gnarled canopy, breathing glow |
+| **Mushroom** | Tiny white bump | Small stem + forming cap | Fuller cap with spots | Giant cap, gills, glowing spots, animated | ElderMushroom — massive ancient cap, baby mushrooms at base, glowing spots |
+| **Cactus** | Tiny round nub | Barrel with ridges + spines | Taller column, first arm stub | Two arms, flowers blooming animated | ElderCactus — huge multi-arm, flowers everywhere, warm golden glow |
+
+- Type is **randomly assigned** when a new plant slot opens
+- Type **never changes** — locked in for that slot forever
+- Future plan: user can select type before planting
+- `plantType` is stored on the `Plant` object in AsyncStorage
 
 ### Garden Fullness & Seasons
-- 8–10 slots × 4 logs = **32–40 total wins** fills the garden
+- 7 regular slots × 4 logs = **28 wins** fills the regular garden
 - Full garden → **Season ends**
 - Old garden saved as a snapshot (Season 1, Season 2, etc.) — viewable anytime
-- New season starts fresh with empty garden
+- New season starts with only elder trees from previous seasons — no regular plants
 - Each season = a chapter of your life
 
 ### Visual Detail
-- Tiny colored flowers on ground = emoji color from your win
-- Older bloomed plants sit in center, newer sprouts at edges
-- Today's win gets a subtle label on first open
+- Accent colors on blooms come from the emoji used for that win (via `emojiToFlowerColor`)
+- Older bloomed plants in back/mid rows, newer sprouts in front row
+- Each plant type has a visually distinct silhouette at every stage
+
+---
+
+## Garden Positions
+
+Slots are divided into three zones. Regular plants **never** touch elder slots.
+
+```
+BACK ROW   y ≈ 0.64–0.66   Elder territory — permanent, feels ancient and distant
+MID ROW    y ≈ 0.74–0.80   Established plants
+FRONT ROW  y ≈ 0.85–0.87   Newest growth, closest to viewer
+```
+
+```typescript
+// REGULAR_SLOT_INDICES = [0, 1, 2, 3, 4, 5, 6]  ← front and mid rows only
+// ELDER_SLOT_INDICES   = [7, 8, 9]               ← back row only
+
+GARDEN_POSITIONS = [
+  { x: 0.50, y: 0.87 }, // 0 — front center  ← first win always here
+  { x: 0.64, y: 0.85 }, // 1 — front right
+  { x: 0.36, y: 0.85 }, // 2 — front left
+  { x: 0.50, y: 0.76 }, // 3 — mid center
+  { x: 0.68, y: 0.74 }, // 4 — mid right
+  { x: 0.32, y: 0.74 }, // 5 — mid left
+  { x: 0.78, y: 0.80 }, // 6 — mid far-right
+  { x: 0.50, y: 0.66 }, // 7 — back center   ← elder slot 1
+  { x: 0.67, y: 0.64 }, // 8 — back right    ← elder slot 2
+  { x: 0.33, y: 0.64 }, // 9 — back left     ← elder slot 3
+]
+```
+
+Keep all y values between 0.65 and 0.92. Never go above 0.60 — that is sky/hill territory.
 
 ---
 
@@ -142,14 +187,20 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 
 ---
 
-## Onboarding (4 screens, under 60 seconds)
+## Onboarding (6 steps)
 
-| Screen | Content |
-|--------|---------|
-| 1 — Hook | App name, tagline, "Get started" button. Nothing else. |
-| 2 — One question | "When should we remind you?" Morning / Evening / Custom / Skip |
-| 3 — First win | "What's one thing you did today?" Text + emoji. "Plant it" button. |
-| 4 — Garden blooms | First plant appears. Stats show 1 win, 1 day streak. "Go to my garden" button. |
+Progress bar visible on steps 2–6. Back navigation available on steps 2–5. Music plays throughout. All steps managed inside `OnboardingScreen.tsx` via a `step` state (1–6).
+
+| Step | Name | Content |
+|------|------|---------|
+| 1 | Hero | App name, hero title ("Grow a little world from the things you did right"), subtitle, 3 feature pills (Plant your wins / Build streaks / See it grow), "Start my garden" CTA. No back button. |
+| 2 | Inspiration | "A lot of good things in your day go unnoticed." — motivational copy about small moments mattering, quote card, "Let's keep going" button. |
+| 3 | Why small | "You don't need to log everything." — explains the 1–3 win daily limit, two point cards (Keeps it intentional / Gives tomorrow a place), quote card, "That makes sense" button. |
+| 4 | Notification | "When should we remind you?" — 4 radio options: Morning (9 AM) / Evening (8 PM) / Custom time / Skip for now. Custom shows inline time input. "Continue" button. |
+| 5 | First win | "What's one thing you did today?" — emoji picker row, large text input, "Plant this win" button. Keyboard avoiding view. This plants the user's first win into season_1. |
+| 6 | Garden reveal | "Here it is." — stats row (1 streak / 1 win), garden canvas showing the first planted win, reveal card with "Your garden has started." copy, "Go to my garden" button. No back button. |
+
+On complete: sets `STORAGE_KEYS.ONBOARDED` to true, saves notification time, first win already saved in step 5.
 
 ---
 
@@ -164,7 +215,7 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 
 ## Screens Summary
 
-1. **Onboarding** (4 screens — one time only)
+1. **Onboarding** (6 steps — one time only)
 2. **Garden** (main screen — garden + stats + "+" button)
 3. **Log win** (bottom sheet over garden)
 4. **History** (scrollable list, grouped by date, swipe to delete)
@@ -178,7 +229,7 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 ## Phases
 
 ### Phase 1 — Core loop ✅ COMPLETE
-- Onboarding (all 4 screens)
+- Onboarding (all 6 steps)
 - Garden screen (static, no animation yet)
 - Log win bottom sheet
 - Plant growth logic (4 stages)
@@ -211,6 +262,7 @@ Rearranging plants after a delete would be confusing and feel punishing. A small
 - App Store keywords + description
 - Whether to add a share/screenshot feature for gardens
 - How user switches scenes (settings screen / dedicated shop / long press)
+- Whether plant type selection replaces random assignment
 
 ---
 
@@ -238,7 +290,7 @@ src/
 assets/
   audio/
     music/
-      onboarding.mp3  ← plays during all 4 onboarding steps
+      onboarding.mp3  ← plays during all 6 onboarding steps
       grove.mp3       ← (add when ready) grove main screen music
     sfx/
       level_up.mp3    ← tap sound — fires immediately on "Plant it" press
@@ -295,15 +347,15 @@ SFX_ENABLED:   'qw_sfx_enabled',     // boolean, default true
 # Scene System
 
 ## Concept
-A **scene** is a self-contained visual + audio package. The current garden becomes the **Grove** scene. Adding a new scene in the future means creating one folder — no rewiring of the app needed.
+A **scene** is a self-contained visual + audio package. The current garden is the **Grove** scene. Adding a new scene in the future means creating one folder — no rewiring of the app needed.
 
 Each scene owns: its plant colors, its background visuals, its music, and its canvas renderer.
 
-## Scene registry
+## Full file structure
 ```
 src/
   scenes/
-    types.ts              ← Scene and SceneColors interfaces — the contract
+    types.ts              ← Scene, SceneColors, CanvasProps, StageProps, ElderProps interfaces
     index.ts              ← Registry: SCENES[], DEFAULT_SCENE, getSceneById()
     grove/
       index.ts            ← Grove scene object
@@ -312,21 +364,81 @@ src/
       GardenCanvas.tsx    ← Grove canvas renderer
       GardenBackground.tsx ← Grove background (sky, clouds, grass, butterflies, etc.)
       plants/
-        Sprout.tsx
-        Seedling.tsx
-        Growing.tsx
-        Bloomed.tsx
-        ElderTree.tsx
-        PlantNode.tsx
-    desert/               ← future scene — same structure, plug and play
+        plantTypes.ts     ← PlantType, PLANT_TYPES[], randomPlantType(), StageProps, ElderProps
+        PlantNode.tsx     ← Generic renderer — reads plantType, picks from STAGE_REGISTRY + ELDER_REGISTRY
+        flower/
+          Stage1.tsx      ← Tiny stem + bud
+          Stage2.tsx      ← Stem + first leaves
+          Stage3.tsx      ← Fuller, bushy, bud forming
+          Stage4.tsx      ← Full bloom, animated petals
+        mushroom/
+          Stage1.tsx      ← Tiny bump poking out of ground
+          Stage2.tsx      ← Small stem + forming cap
+          Stage3.tsx      ← Fuller cap with spots
+          Stage4.tsx      ← Giant cap, gills, animated bloom
+        cactus/
+          Stage1.tsx      ← Tiny round nub with spines
+          Stage2.tsx      ← Barrel cactus with ridges
+          Stage3.tsx      ← Taller column, first arm stub
+          Stage4.tsx      ← Two arms, flowers blooming animated
+        elders/
+          ElderFlower.tsx  ← Ancient wide canopy tree, breathing bloom glow
+          ElderMushroom.tsx ← Massive ancient mushroom, glowing spots, baby mushrooms at base
+          ElderCactus.tsx  ← Huge multi-arm cactus, flowers everywhere, golden breathing glow
+    desert/               ← future scene — exact same structure, plug and play
       index.ts
       colors.ts
       music.ts
       GardenCanvas.tsx
       GardenBackground.tsx
       plants/
-        ...
+        plantTypes.ts
+        PlantNode.tsx
+        flower/ mushroom/ cactus/ elders/
 ```
+
+## plantTypes.ts
+```typescript
+export type PlantType = 'flower' | 'mushroom' | 'cactus'
+export const PLANT_TYPES: PlantType[] = ['flower', 'mushroom', 'cactus']
+
+// Randomly assigns a type when a new slot opens.
+// Replace this with user selection logic when that feature is built.
+export const randomPlantType = (): PlantType =>
+  PLANT_TYPES[Math.floor(Math.random() * PLANT_TYPES.length)]
+
+export interface StageProps {
+  x: number
+  y: number
+  colors: SceneColors
+  accentColor?: string   // used by stage 4 for bloom/flower color from emoji
+}
+
+export interface ElderProps {
+  x: number
+  y: number
+  colors: SceneColors
+}
+```
+
+## PlantNode registries
+```typescript
+// Stage registry — maps type + stage → component
+const STAGE_REGISTRY = {
+  flower:   { 1: FlowerS1,   2: FlowerS2,   3: FlowerS3,   4: FlowerS4 },
+  mushroom: { 1: MushroomS1, 2: MushroomS2, 3: MushroomS3, 4: MushroomS4 },
+  cactus:   { 1: CactusS1,   2: CactusS2,   3: CactusS3,   4: CactusS4 },
+}
+
+// Elder registry — maps type → elder component
+const ELDER_REGISTRY = {
+  flower:   ElderFlower,
+  mushroom: ElderMushroom,
+  cactus:   ElderCactus,
+}
+```
+
+To add a new plant type: create its stage folder + elder file, import both into `PlantNode.tsx`, add entries to both registries. That's it — `randomPlantType()` will automatically include it.
 
 ## The Scene contract (`types.ts`)
 ```typescript
@@ -345,7 +457,7 @@ export interface CanvasProps {
   width: number
   height: number
   colors: SceneColors
-  theme: Theme          // still needed for accent colors (emoji → flower)
+  theme: Theme          // still needed for accent colors (emoji → flower color)
   plants: Plant[]
   wins: Win[]
   onPlantTap?: (plant: Plant) => void
@@ -391,9 +503,10 @@ const SceneCanvas = scene.Canvas
 
 ## Critical rules
 - **Plant sprites receive `colors: SceneColors`, never `theme: Theme`** — they are scene-agnostic
-- **`GardenBackground` owns its own environment colors** (sky, grass, stones) — these are NOT in `SceneColors`. `SceneColors` is for plants only. Each scene's background file is fully custom.
+- **`GardenBackground` owns its own environment colors** (sky, grass, stones) — NOT from `SceneColors`. Each scene's background is fully custom.
 - **`theme` still flows into `GardenCanvas`** for accent/flower colors via `emojiToFlowerColor(emoji, theme)`
-- **Never import from `@/components/garden/`** — that folder is deprecated. All garden code now lives in `src/scenes/grove/`
+- **Never import from `@/components/garden/`** — that folder is deprecated. All garden code lives in `src/scenes/grove/`
+- **`plantType` on elders** always inherits the type of the plant that earned it — never hardcoded
 - To add a new scene: copy the `grove/` folder, rename it, change colors/music/background, add to registry. Done.
 
 ## Grove scene — default scene
@@ -402,6 +515,14 @@ const SceneCanvas = scene.Canvas
 - **Music:** `onboarding.mp3` (temporary — replace with `grove.mp3` when ready)
 - **Background:** Sky gradient, rolling hills, clouds, birds, butterflies, ladybug, grass layers, stones, wildflowers
 - **Plant colors:** Derived from `theme.plant.*` so light/dark mode is respected automatically
+
+## Adding a plant type checklist
+- [ ] Create `src/scenes/grove/plants/{type}/Stage1–4.tsx`
+- [ ] Create `src/scenes/grove/plants/elders/Elder{Type}.tsx`
+- [ ] Import all 5 files into `PlantNode.tsx`
+- [ ] Add to `STAGE_REGISTRY` and `ELDER_REGISTRY` in `PlantNode.tsx`
+- [ ] Add to `PLANT_TYPES` array in `plantTypes.ts`
+- [ ] Done — `randomPlantType()` automatically includes it
 
 ## Adding a scene checklist
 - [ ] Create `src/scenes/{name}/` folder
@@ -412,6 +533,72 @@ const SceneCanvas = scene.Canvas
 - [ ] Optionally reskin plant sprites in `plants/`
 - [ ] Add to `src/scenes/index.ts` registry
 - [ ] Add `locked: true` if it should be behind a paywall
+
+---
+
+---
+
+# Elder Trees
+
+## What they are
+When a new season begins, the garden is not empty. An **Elder** stands in the back row — ancient, permanent, proof the user completed the previous season. Each elder **inherits the plant type** of the plant that completed that season.
+
+- A flower that completes → **ElderFlower** (wide gnarled canopy, bloom glow)
+- A mushroom that completes → **ElderMushroom** (massive ancient cap, glowing spots, baby mushrooms at base)
+- A cactus that completes → **ElderCactus** (huge multi-arm, flowers everywhere, warm golden glow)
+
+## Rules
+- Elder trees are **permanent** — cannot be deleted
+- Elder trees **never shrink** — not connected to any win data
+- Each completed season adds one elder to the back row of the next season
+- Elders always occupy slots 7, 8, 9 — regular plants never use these slots
+- Season 2 starts with 1 elder in slot 7
+- Season 3 starts with 2 elders in slots 7 and 8
+- Season 4 starts with 3 elders filling all back-row slots
+- Over years the garden becomes a forest of ancient elders surrounded by new growth
+
+## Season transition — `transitionSeason()`
+
+**Never use `clearAllPlants` + `addElderTrees` separately** — this causes a race condition where storage is emptied before slot calculation runs, putting all elders in slot 7.
+
+Always use the atomic `transitionSeason()` function:
+
+```typescript
+// In GardenScreen — handleRecapReady:
+const elderTypes = updatedPlants
+  .filter(p => !p.isElder && p.stage === 4)
+  .map(p => p.plantType)
+
+await transitionSeason(nextSeason.id, elderTypes)
+```
+
+```typescript
+// In usePlants.ts — transitionSeason:
+// 1. Loads existing elders from storage (preserves all previous seasons' elders)
+// 2. Starts working array from existing elders so slot calculation sees occupied slots
+// 3. Adds new elders in next available back-row slots
+// 4. Saves everything atomically
+const existingElders = current.filter(p => p.isElder)
+let working = [...existingElders]
+for (let i = 0; i < plantTypes.length; i++) {
+  working = [...working, {
+    slotIndex: nextElderSlot(working),
+    plantType: plantTypes[i],
+    isElder: true,
+    ...
+  }]
+}
+await savePlants(working)
+```
+
+## Elder visual rules
+- All elders share the same props interface: `{ x, y, colors: SceneColors }`
+- All elders have a **breathing glow animation** (infinite pulse, ~2.4–3s per cycle)
+- Tapping an Elder shows: *"This tree remembers Season N. You grew X wins."*
+
+## Empty season start message
+When a new season begins, show a one-time message over the garden:
+> *"Season 2 begins. Your garden remembers nothing. You remember everything."*
 
 ---
 
@@ -657,10 +844,10 @@ const GardenScreen = () => {
 ## Usage in Skia (plant sprites)
 
 ```typescript
-// Plant sprites now receive SceneColors, NOT Theme
+// Plant sprites receive SceneColors, NOT Theme
 import { SceneColors } from '@/scenes/types'
 
-const Sprout = ({ x, y, colors }: { x: number; y: number; colors: SceneColors }) => {
+const Stage1 = ({ x, y, colors }: { x: number; y: number; colors: SceneColors }) => {
   return (
     <>
       <Path ... color={colors.sprout} />
@@ -687,7 +874,7 @@ Note: both modes are dark-green themed. "Light" means slightly less deep, not wh
 ## Rules for developers
 
 1. **Never** use a raw hex color in a UI component. Always use `theme.*`
-2. **Never** use `StyleSheet.create()` with hardcoded colors
+2. **Never** use `StyleSheet.create()` with hardcoded colors — create styles inside the component where `theme` is available
 3. **Plant sprites (Skia)** use `colors: SceneColors` — never `theme` directly
 4. **GardenCanvas** receives both `colors` (for plants) and `theme` (for accent/flower colors)
 5. **GardenBackground** owns its own fixed environment colors — these are scene-specific, not from `SceneColors`
@@ -695,6 +882,7 @@ Note: both modes are dark-green themed. "Light" means slightly less deep, not wh
 7. When adding a new UI color, add it to **both** `lightTheme` and `darkTheme` before using it
 8. Both themes are dark-green by design — never introduce white, light gray, or neutral backgrounds
 9. **Never import from `@/components/garden/`** — deprecated. Use `@/scenes/grove/` instead
+10. **`plantType` on elders** must always inherit from the plant that earned it — never hardcode to `'flower'`
 
 ---
 
@@ -728,31 +916,6 @@ export const emojiToFlowerColor = (emoji: string, theme: Theme): string => {
   > *"You missed a day. It happens. Your streak resets but your garden stays."*
 - **The garden is never punished.** Plants stay exactly as they are on a streak reset. Only the streak number changes.
 - Grace skip indicator shown subtly in Settings or stats area — "1 grace skip available this week" / "Grace skip used"
-
----
-
-## Elder Tree
-
-### What it is
-When a new season begins, the garden is not empty. A single **Elder Tree** stands in the center — ancient, large, more gnarled and beautiful than any regular plant. It is proof the user completed the previous season.
-
-### Rules
-- Elder Trees are **permanent** — they cannot be deleted
-- Elder Trees **never shrink** — they are not connected to any win data
-- Each completed season adds one more Elder Tree to the start of the next season
-- Elder Trees occupy the center slots — new plants grow around them outward
-- Season 2 starts with 1 Elder Tree
-- Season 3 starts with 2 Elder Trees
-- Over years the garden becomes a forest of elders surrounded by new growth
-
-### Visual
-- Visually distinct from regular plants — wider trunk, more complex canopy, slightly different color (deeper, more muted green with subtle texture)
-- A small subtle glow or particle effect on the Elder Tree to make it feel special — nothing flashy, just alive
-- Tapping an Elder Tree shows: *"This tree remembers Season 1. You grew 38 wins."*
-
-### Empty season start message
-When a new season begins, show a one-time message over the garden:
-> *"Season 2 begins. Your garden remembers nothing. You remember everything."*
 
 ---
 
@@ -801,13 +964,15 @@ When a new season begins, show a one-time message over the garden:
 - All streak/grace skip calculations live in `src/hooks/useStreak.ts`
 - All win CRUD operations live in `src/hooks/useWins.ts`
 - Garden position calculations live in `src/utils/gardenPositions.ts`
+- Season transitions use `transitionSeason()` in `src/hooks/usePlants.ts` — never the two-step clear+add pattern
 
 ## Skia (garden canvas)
 - All Skia drawing code lives in `src/scenes/{sceneName}/`
 - **Never import from `src/components/garden/`** — that folder is deprecated
 - Never mix Skia and React Native Views in the same component
-- Plant rendering logic split by stage in `src/scenes/{sceneName}/plants/`
-- Plant sprites receive `colors: SceneColors` — never `theme: Theme` directly
+- Plant stage sprites live in `src/scenes/{sceneName}/plants/{type}/Stage1–4.tsx`
+- Elder sprites live in `src/scenes/{sceneName}/plants/elders/Elder{Type}.tsx`
+- All sprites receive `colors: SceneColors` — never `theme: Theme` directly
 
 ---
 
@@ -832,11 +997,12 @@ interface Win {
 ```typescript
 interface Plant {
   id: string           // uuid
-  slotIndex: number    // position in garden (0 = center, spirals outward)
+  slotIndex: number    // 0–6 = regular slots (front/mid rows), 7–9 = elder slots (back row)
   stage: 0 | 1 | 2 | 3 | 4  // 0 = empty slot, 4 = fully bloomed
-  winIds: string[]     // ordered list of win IDs that grew this plant (max 4)
-  isElder: boolean     // true = Elder Tree, permanent, not connected to wins
+  winIds: string[]     // ordered list of win IDs that grew this plant (max 4, empty for elders)
+  isElder: boolean     // true = elder, permanent, not connected to wins
   seasonId: string     // which season this plant belongs to
+  plantType: PlantType // 'flower' | 'mushroom' | 'cactus' — assigned at birth, never changes
 }
 ```
 
@@ -848,6 +1014,7 @@ interface Season {
   startedAt: string    // ISO date string
   completedAt: string | null  // null if current season
   totalWins: number    // snapshot of wins when season ended
+  plantSnapshot: Plant[]  // full plants array captured at completion
 }
 ```
 
@@ -895,9 +1062,14 @@ Key decisions made during planning and development. Read this before making any 
 | Theme | Dark forest green always | Core identity — both light and dark modes are green, never white or gray |
 | Win limit | 1–3 per day | Keeps logging lightweight, prevents the app feeling like a task manager |
 | Plant growth | 4 wins = full bloom | Simple, achievable, satisfying — not too fast, not too slow |
-| Garden size | 8–10 slots | Full garden in 32–40 wins — achievable in ~2 months, earns a season reset |
+| Garden size | 10 slots (7 regular + 3 elder) | Elders get permanent back row, regular plants fill front/mid |
+| Garden zones | Front / mid / back rows | Natural depth — elders recede into background, new growth comes forward |
 | Seasons | Reset at full garden | Treats each season as a life chapter, old gardens saved as snapshots forever |
-| Elder Tree | Permanent, center slot | Rewards completing a season, makes returning users feel legacy and progress |
+| Plant types | Flower, Mushroom, Cactus | Visually distinct silhouettes at every stage — no two look alike |
+| Plant type assignment | Random at slot birth | Simple for now — user selection planned for later |
+| Elder inheritance | Elder inherits plantType of completed plant | A cactus becomes an Elder Cactus — continuity and identity |
+| Elder slots | Fixed back row (slots 7–9) | Permanent elders naturally recede, new growth fills front |
+| Season transition | Single atomic `transitionSeason()` | Prevents race condition from two-step clear + add pattern |
 | Delete behavior | Plant shrinks, no rearrange | Gaps are honest — rearranging feels punishing and confusing |
 | Streak grace | 1 skip per week | Forgiving without making streaks meaningless |
 | Streak reset tone | Gentle, never punishing | Garden stays intact — only the number resets, not the emotional progress |
@@ -905,14 +1077,16 @@ Key decisions made during planning and development. Read this before making any 
 | Scenes monetization | Paid per scene (price TBD) | Different from visualizations — scenes are environments, sold separately |
 | Notifications | 10 rotating, dark humor | Avoids notification fatigue, matches the app's personality |
 | No notification if 3 wins logged | Skip notification | Respects the user — they're done for the day, don't bother them |
-| Onboarding | 4 screens, first win required | User feels the app before leaving onboarding — retention from minute one |
+| Onboarding | 6 steps with progress bar + back nav | More engaging — emotional buy-in before first win. Steps 2 & 3 build philosophy. Step 5 plants first win. Step 6 reveals garden. |
 | Scene system | Self-contained folders | Plug and play — new scene = new folder, no rewiring needed |
+| Plant type system | Separate stage folders + elder folder | Same pattern as scene system — new type = new folder + two registry entries |
 | SceneColors vs Theme | Separate contracts | Plant sprites are scene-agnostic; UI components use theme. Clean separation. |
 | GardenBackground colors | Fixed per scene | Background environment (sky, grass) is scene-specific, not driven by theme tokens |
 | Audio silent mode | Respect device silent switch | Never override the user's intent — if phone is muted, app is muted |
-| SFX timing | tap immediate, grow +400ms | tap fires on press for instant feedback; grow fires after sheet closes so it syncs with plant appearing |
+| SFX timing | tap immediate, grow +400ms | tap fires on press for instant feedback; grow fires after sheet closes, syncs with plant appearing |
 | Default scene | Grove | Warm, natural, matches app identity. Free forever. |
 | Scene switching UI | TBD | Not decided yet — settings / shop screen / long press all under consideration |
+| Plant type selection UI | TBD | Random for now — user selection planned when plant type system matures |
 
 ---
 

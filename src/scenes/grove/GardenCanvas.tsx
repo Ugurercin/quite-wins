@@ -10,10 +10,8 @@ import GardenBackground from './GardenBackground'
 import PlantNode from './plants/PlantNode'
 
 const HIT_W = 64
-const HIT_H = 80
+const HIT_H = 90
 
-// Grove's GardenCanvas — implements CanvasProps contract.
-// Future scenes copy this file and customize rendering as needed.
 const GardenCanvas = ({ width, height, colors, theme, plants, wins, onPlantTap }: CanvasProps) => {
   const prevPlantsRef = useRef<Map<string, Plant>>(new Map())
   const isFirstRender = useRef(true)
@@ -66,6 +64,7 @@ const GardenCanvas = ({ width, height, colors, theme, plants, wins, onPlantTap }
               stage={plant.stage as 1 | 2 | 3 | 4}
               colors={colors}
               accentColor={getAccentColor(plant)}
+              plantType={plant.plantType ?? 'flower'}
               isElder={plant.isElder}
             />
           )
@@ -82,6 +81,7 @@ const GardenCanvas = ({ width, height, colors, theme, plants, wins, onPlantTap }
               stage={Math.max(1, plant.stage) as 1 | 2 | 3 | 4}
               colors={colors}
               accentColor={getAccentColor(plant)}
+              plantType={plant.plantType ?? 'flower'}
               isElder={plant.isElder}
               isExiting
             />

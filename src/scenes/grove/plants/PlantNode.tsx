@@ -8,11 +8,47 @@ import {
   withTiming,
 } from 'react-native-reanimated'
 import { SceneColors } from '@/scenes/types'
-import Sprout from './Sprout'
-import Seedling from './Seedling'
-import Growing from './Growing'
-import Bloomed from './Bloomed'
-import ElderTree from './ElderTree'
+import { PlantType } from './plantTypes'
+
+// ─── Stage registry ───────────────────────────────────────────────────────────
+// To add a new plant type: create its folder, import stages here, add entry.
+
+import FlowerS1 from './flower/Stage1'
+import FlowerS2 from './flower/Stage2'
+import FlowerS3 from './flower/Stage3'
+import FlowerS4 from './flower/Stage4'
+
+import MushroomS1 from './mushroom/Stage1'
+import MushroomS2 from './mushroom/Stage2'
+import MushroomS3 from './mushroom/Stage3'
+import MushroomS4 from './mushroom/Stage4'
+
+import CactusS1 from './cactus/Stage1'
+import CactusS2 from './cactus/Stage2'
+import CactusS3 from './cactus/Stage3'
+import CactusS4 from './cactus/Stage4'
+
+const STAGE_REGISTRY = {
+  flower:   { 1: FlowerS1,   2: FlowerS2,   3: FlowerS3,   4: FlowerS4 },
+  mushroom: { 1: MushroomS1, 2: MushroomS2, 3: MushroomS3, 4: MushroomS4 },
+  cactus:   { 1: CactusS1,   2: CactusS2,   3: CactusS3,   4: CactusS4 },
+} as const
+
+// ─── Elder registry ───────────────────────────────────────────────────────────
+// Each plant type has its own elder visual.
+// To add a new type: create ElderNewType.tsx in elders/, add entry here.
+
+import ElderFlower   from './elders/ElderFlower'
+import ElderMushroom from './elders/ElderMushroom'
+import ElderCactus   from './elders/ElderCactus'
+
+const ELDER_REGISTRY = {
+  flower:   ElderFlower,
+  mushroom: ElderMushroom,
+  cactus:   ElderCactus,
+} as const
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   x: number
@@ -20,23 +56,26 @@ interface Props {
   stage: 1 | 2 | 3 | 4
   colors: SceneColors
   accentColor: string
+  plantType: PlantType
   isElder?: boolean
   isExiting?: boolean
 }
 
-const PlantNode = ({ x, y, stage, colors, accentColor, isElder, isExiting }: Props) => {
-  const scaleVal = useSharedValue(isExiting ? 1 : 0.2)
+// ─── Component ───────────────────────────────────────────────────────────────
+
+const PlantNode = ({ x, y, stage, colors, accentColor, plantType, isElder, isExiting }: Props) => {
+  const scaleVal   = useSharedValue(isExiting ? 1 : 0.2)
   const opacityVal = useSharedValue(isExiting ? 1 : 0)
   const prevStageRef = useRef(stage)
 
   useEffect(() => {
     if (isExiting) {
-      scaleVal.value = withTiming(0.15, { duration: 500, easing: Easing.in(Easing.cubic) })
+      scaleVal.value   = withTiming(0.15, { duration: 500, easing: Easing.in(Easing.cubic) })
       opacityVal.value = withTiming(0, { duration: 450 })
     } else {
       scaleVal.value = withSequence(
         withTiming(1.12, { duration: 380, easing: Easing.out(Easing.cubic) }),
-        withTiming(1.0, { duration: 200, easing: Easing.inOut(Easing.cubic) }),
+        withTiming(1.0,  { duration: 200, easing: Easing.inOut(Easing.cubic) }),
       )
       opacityVal.value = withTiming(1, { duration: 320 })
     }
@@ -55,19 +94,17 @@ const PlantNode = ({ x, y, stage, colors, accentColor, isElder, isExiting }: Pro
 
   const transform = useDerivedValue(() => [{ scale: scaleVal.value }])
 
+  // Pick the correct elder or stage component from registry
+  const ElderComponent = ELDER_REGISTRY[plantType] ?? ElderFlower
+  const StageComponent = STAGE_REGISTRY[plantType]?.[stage]
+
   return (
     <Group transform={transform} origin={vec(x, y)} opacity={opacityVal}>
       {isElder ? (
-        <ElderTree x={x} y={y} colors={colors} />
-      ) : stage === 1 ? (
-        <Sprout x={x} y={y} colors={colors} />
-      ) : stage === 2 ? (
-        <Seedling x={x} y={y} colors={colors} />
-      ) : stage === 3 ? (
-        <Growing x={x} y={y} colors={colors} />
-      ) : (
-        <Bloomed x={x} y={y} colors={colors} accentColor={accentColor} />
-      )}
+        <ElderComponent x={x} y={y} colors={colors} />
+      ) : StageComponent ? (
+        <StageComponent x={x} y={y} colors={colors} accentColor={accentColor} />
+      ) : null}
     </Group>
   )
 }

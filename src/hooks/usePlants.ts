@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { STORAGE_KEYS } from '@/storage/keys'
+import { ELDER_SLOT_INDICES, REGULAR_SLOT_INDICES } from '@/utils/gardenPositions'
+import { PlantType, randomPlantType } from '@/scenes/grove/plants/plantTypes'
 
 export interface Plant {
   id: string
@@ -9,6 +11,7 @@ export interface Plant {
   winIds: string[]
   isElder: boolean
   seasonId: string
+  plantType: PlantType
 }
 
 const generateId = (): string =>
@@ -23,10 +26,18 @@ const savePlants = async (plants: Plant[]): Promise<void> => {
   await AsyncStorage.setItem(STORAGE_KEYS.PLANTS, JSON.stringify(plants))
 }
 
-const nextSlotIndex = (plants: Plant[]): number => {
+const nextRegularSlot = (plants: Plant[]): number => {
   const used = new Set(plants.map(p => p.slotIndex))
-  for (let i = 0; i < 10; i++) {
-    if (!used.has(i)) return i
+  for (const idx of REGULAR_SLOT_INDICES) {
+    if (!used.has(idx)) return idx
+  }
+  return plants.length
+}
+
+const nextElderSlot = (plants: Plant[]): number => {
+  const used = new Set(plants.map(p => p.slotIndex))
+  for (const idx of ELDER_SLOT_INDICES) {
+    if (!used.has(idx)) return idx
   }
   return plants.length
 }
@@ -45,7 +56,6 @@ export const usePlants = () => {
   const growPlant = useCallback(
     async (winId: string, seasonId: string): Promise<Plant[]> => {
       const current = [...plants]
-
       const activePlant = current.find(
         p => !p.isElder && p.stage < 4 && p.seasonId === seasonId,
       )
@@ -60,11 +70,12 @@ export const usePlants = () => {
       } else {
         const newPlant: Plant = {
           id: generateId(),
-          slotIndex: nextSlotIndex(current),
+          slotIndex: nextRegularSlot(current),
           stage: 1,
           winIds: [winId],
           isElder: false,
           seasonId,
+          plantType: randomPlantType(),
         }
         updated = [...current, newPlant]
       }
@@ -82,10 +93,10 @@ export const usePlants = () => {
       const target = current.find(p => p.winIds.includes(winId))
       if (!target) return current
 
-      let updated: Plant[]
       const newWinIds = target.winIds.filter(id => id !== winId)
       const newStage = Math.max(0, target.stage - 1) as 0 | 1 | 2 | 3 | 4
 
+      let updated: Plant[]
       if (newStage === 0) {
         updated = current.filter(p => p.id !== target.id)
       } else {
@@ -101,43 +112,58 @@ export const usePlants = () => {
     [plants],
   )
 
-  const addElderTree = useCallback(
-    async (seasonId: string): Promise<Plant[]> => {
-      const slotIndex = nextSlotIndex(plants)
-      const elder: Plant = {
-        id: generateId(),
-        slotIndex,
-        stage: 4,
-        winIds: [],
-        isElder: true,
-        seasonId,
-      }
-      const updated = [...plants, elder]
-      await savePlants(updated)
-      setPlants(updated)
-      return updated
-    },
-    [plants],
-  )
-
-  const addElderTrees = useCallback(
-    async (count: number, seasonId: string): Promise<Plant[]> => {
+  // Atomic season transition.
+  // Keeps all existing elders from previous seasons, removes regular plants,
+  // then adds new elders for the season that just completed.
+  const transitionSeason = useCallback(
+    async (seasonId: string, plantTypes: PlantType[]): Promise<Plant[]> => {
+      // Load from storage to get the true current state
       const current = await loadPlants()
-      let working = [...current]
-      for (let i = 0; i < count; i++) {
+
+      // Keep elders from all previous seasons — they are permanent
+      const existingElders = current.filter(p => p.isElder)
+
+      // Start working array from existing elders so slot calculation is correct
+      let working = [...existingElders]
+
+      // Add one new elder per completed plant type
+      for (let i = 0; i < plantTypes.length; i++) {
+        const slot = nextElderSlot(working)
         const elder: Plant = {
           id: generateId(),
-          slotIndex: nextSlotIndex(working),
+          slotIndex: slot,
           stage: 4,
           winIds: [],
           isElder: true,
           seasonId,
+          plantType: plantTypes[i],
         }
         working = [...working, elder]
       }
+
       await savePlants(working)
       setPlants(working)
       return working
+    },
+    [],
+  )
+
+  const addElderTree = useCallback(
+    async (seasonId: string, plantType: PlantType): Promise<Plant[]> => {
+      const current = await loadPlants()
+      const elder: Plant = {
+        id: generateId(),
+        slotIndex: nextElderSlot(current),
+        stage: 4,
+        winIds: [],
+        isElder: true,
+        seasonId,
+        plantType,
+      }
+      const updated = [...current, elder]
+      await savePlants(updated)
+      setPlants(updated)
+      return updated
     },
     [],
   )
@@ -155,5 +181,14 @@ export const usePlants = () => {
     return eldersOnly
   }, [])
 
-  return { plants, loading, growPlant, shrinkPlant, addElderTree, addElderTrees, clearAllPlants, clearNonElderPlants }
+  return {
+    plants,
+    loading,
+    growPlant,
+    shrinkPlant,
+    transitionSeason,
+    addElderTree,
+    clearAllPlants,
+    clearNonElderPlants,
+  }
 }

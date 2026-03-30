@@ -16,8 +16,8 @@ interface Props {
   colors: SceneColors
 }
 
-// Permanent elder tree — ancient, wide, gnarled. Cannot be deleted.
-const ElderTree = ({ x, y, colors }: Props) => {
+// Elder Flower Tree — ancient, wide, gnarled. Permanent. Breathing glow.
+const ElderFlower = ({ x, y, colors }: Props) => {
   const glow = useSharedValue(0.25)
 
   useEffect(() => {
@@ -76,6 +76,7 @@ const ElderTree = ({ x, y, colors }: Props) => {
       <Path path={branchLeft} color={colors.trunk} style="fill" />
       <Path path={branchRight} color={colors.trunk} style="fill" />
 
+      {/* Layered canopy */}
       <Circle cx={x} cy={y - 80} r={34} color={colors.bodyDark} />
       <Circle cx={x - 26} cy={y - 72} r={22} color={colors.bodyDark} />
       <Circle cx={x + 26} cy={y - 72} r={22} color={colors.bodyDark} />
@@ -90,10 +91,11 @@ const ElderTree = ({ x, y, colors }: Props) => {
       <Circle cx={x + 22} cy={y - 74} r={2.5} color={colors.sprout} opacity={0.25} />
       <Circle cx={x - 8} cy={y - 96} r={2} color={colors.bloom} opacity={0.3} />
 
+      {/* Breathing glow */}
       <Circle cx={x - 2} cy={y - 88} r={glowR} color={colors.bloom} opacity={glowOpacity} />
       <Circle cx={x + 6} cy={y - 82} r={5} color={colors.bloom} opacity={glowOpacity} />
     </>
   )
 }
 
-export default ElderTree
+export default ElderFlower

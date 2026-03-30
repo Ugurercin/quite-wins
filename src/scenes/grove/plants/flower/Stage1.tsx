@@ -1,15 +1,9 @@
 import React from 'react'
 import { Circle, Oval, Path, Skia } from '@shopify/react-native-skia'
-import { SceneColors } from '@/scenes/types'
+import { StageProps } from '../plantTypes'
 
-interface Props {
-  x: number
-  y: number
-  colors: SceneColors
-}
-
-// Stage 1 — Tiny stem with a small bud just poking out of the ground.
-const Sprout = ({ x, y, colors }: Props) => {
+// Flower — Stage 1: Tiny stem with a small bud just poking out of the ground.
+const Stage1 = ({ x, y, colors }: StageProps) => {
   const stemHeight = 30
 
   const stemPath = Skia.Path.Make()
@@ -31,4 +25,4 @@ const Sprout = ({ x, y, colors }: Props) => {
   )
 }
 
-export default Sprout
+export default Stage1

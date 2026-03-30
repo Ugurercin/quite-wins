@@ -6,15 +6,16 @@ import {
   StyleSheet,
   useWindowDimensions,
   StatusBar,
-  SafeAreaView,
+  Platform,
+  LayoutChangeEvent,
 } from 'react-native'
 import { useTheme } from '@/theme'
-import { Theme } from '@/theme/theme'
 import { useWins } from '@/hooks/useWins'
 import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
 import { useSeasons, isSeasonComplete } from '@/hooks/useSeasons'
 import { Plant } from '@/hooks/usePlants'
+import { PlantType } from '@/scenes/grove/plants/plantTypes'
 import { DEFAULT_SCENE } from '@/scenes'
 import LogWinSheet from '@/components/LogWinSheet'
 import PlantPopup from '@/components/PlantPopup'
@@ -26,11 +27,18 @@ interface Props {
   onDevReset?: () => void
 }
 
-const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Props) => {
+const MAX_DAILY_WINS = 2000
+
+const GardenScreen = ({
+  onNavigateHistory,
+  onNavigateArchive,
+  onDevReset,
+}: Props) => {
   const { theme } = useTheme()
-  const { width, height } = useWindowDimensions()
+  const { width } = useWindowDimensions()
+
   const { wins, addWin, deleteWin } = useWins()
-  const { plants, growPlant, shrinkPlant, addElderTrees, clearAllPlants } = usePlants()
+  const { plants, growPlant, shrinkPlant, transitionSeason } = usePlants()
   const { streak, updateStreak, recalculateStreak, graceAvailable } = useStreak()
   const { seasons, getCurrentSeason, completeSeason } = useSeasons()
 
@@ -42,24 +50,35 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
   const [recapSeasonNumber, setRecapSeasonNumber] = useState(0)
   const [recapTotalWins, setRecapTotalWins] = useState(0)
 
+  const [gardenHeight, setGardenHeight] = useState(320)
+
   const pendingUpdatedPlants = useRef<Plant[]>([])
   const pendingTotalWins = useRef(0)
-  const pendingCompletedSeasonCount = useRef(0)
+  const pendingElderTypes = useRef<PlantType[]>([])
 
   const today = new Date().toISOString().split('T')[0]
   const todayWins = wins.filter(w => w.createdAt.startsWith(today))
+  const todayCount = todayWins.length
   const totalWins = wins.length
   const currentSeason = getCurrentSeason()
   const completedCount = seasons.filter(s => s.completedAt !== null).length
+  const reachedDailyLimit = todayCount >= MAX_DAILY_WINS
 
-  // ─── Scene ──────────────────────────────────────────────────────────────────
-  // Swap DEFAULT_SCENE for a user-selected scene when scene switching is built.
+  const topInset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 54
+  const bottomInset = Platform.OS === 'android' ? 18 : 28
+
   const scene = DEFAULT_SCENE
   const sceneColors = scene.getColors(theme)
   const SceneCanvas = scene.Canvas
 
+  const handleGardenLayout = (event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height
+    if (nextHeight > 0) setGardenHeight(nextHeight)
+  }
+
   const handleAddWin = async (text: string, emoji: string) => {
     if (!currentSeason) return
+
     const win = await addWin(text, emoji, currentSeason.id)
     const updatedPlants = await growPlant(win.id, currentSeason.id)
     await updateStreak()
@@ -69,9 +88,13 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
       const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
       const totalWinsSnapshot = wins.length + 1
 
+      const elderTypes = updatedPlants
+        .filter(p => !p.isElder && p.stage === 4)
+        .map(p => p.plantType)
+
       pendingUpdatedPlants.current = updatedPlants
       pendingTotalWins.current = totalWinsSnapshot
-      pendingCompletedSeasonCount.current = currentSeason.number
+      pendingElderTypes.current = elderTypes
 
       setRecapSeasonNumber(nextSeasonNumber - 1)
       setRecapTotalWins(totalWinsSnapshot)
@@ -85,11 +108,12 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
       pendingTotalWins.current,
       pendingUpdatedPlants.current,
     )
-    await clearAllPlants()
-    await addElderTrees(pendingCompletedSeasonCount.current, nextSeason.id)
+    await transitionSeason(nextSeason.id, pendingElderTypes.current)
   }
 
-  const handlePlantTap = (plant: Plant) => setSelectedPlant(plant)
+  const handlePlantTap = (plant: Plant) => {
+    setSelectedPlant(plant)
+  }
 
   const handleDeleteWin = async (winId: string) => {
     await deleteWin(winId)
@@ -109,97 +133,191 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
     }
   }
 
-  const s = makeStyles(theme)
+  const getCtaLabel = (): string => {
+    if (reachedDailyLimit) return "You've planted 3 today"
+    if (todayCount === 0) return 'Plant your first win today'
+    if (todayCount === 1) return 'Plant another win'
+    return 'One more win left today'
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.background.primary }}>
+    <View style={[styles.screen, { backgroundColor: theme.background.primary }]}>
       <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
-      <SafeAreaView style={{ flex: 1 }}>
 
-        {/* Stats row */}
-        <View style={[s.statsRow, { backgroundColor: theme.stats.statsBg, borderBottomColor: theme.ui.border }]}>
-          <View style={s.statItem}>
-            <Text style={[s.statNumber, { color: theme.stats.streakText }]}>
-              {streak.current}
-            </Text>
-            <Text style={[s.statLabel, { color: theme.text.secondary }]}>
-              day streak
-            </Text>
-            {graceAvailable && streak.current > 0 && (
-              <Text style={[s.graceIndicator, { color: theme.text.tertiary }]}>grace ✓</Text>
-            )}
+      {/* ───────────────── Top area: header + optional banner ───────────────── */}
+      <View
+        style={[
+          styles.topSection,
+          {
+            paddingTop: topInset + 8,
+            backgroundColor: theme.background.primary,
+            borderBottomColor: theme.ui.border,
+          },
+        ]}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <View style={styles.statChip}>
+              <Text style={[styles.statValue, { color: theme.stats.streakText }]}>
+                {streak.current}
+              </Text>
+              <Text style={[styles.statUnit, { color: theme.text.tertiary }]}>
+                day{streak.current !== 1 ? 's' : ''}
+              </Text>
+
+              {graceAvailable && streak.current > 0 && (
+                <View
+                  style={[
+                    styles.graceDot,
+                    { backgroundColor: theme.brand.light },
+                  ]}
+                />
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.statDivider,
+                { backgroundColor: theme.ui.border },
+              ]}
+            />
+
+            <View style={styles.statChip}>
+              <Text style={[styles.statValue, { color: theme.stats.winsText }]}>
+                {totalWins}
+              </Text>
+              <Text style={[styles.statUnit, { color: theme.text.tertiary }]}>
+                win{totalWins !== 1 ? 's' : ''}
+              </Text>
+            </View>
           </View>
-          <View style={[s.statDivider, { backgroundColor: theme.ui.border }]} />
-          <View style={s.statItem}>
-            <Text style={[s.statNumber, { color: theme.stats.winsText }]}>
-              {totalWins}
-            </Text>
-            <Text style={[s.statLabel, { color: theme.text.secondary }]}>
-              total wins
-            </Text>
-          </View>
-          <View style={s.navButtons}>
+
+          <View style={styles.headerRight}>
             {completedCount > 0 && (
               <TouchableOpacity
-                style={s.iconButton}
+                style={styles.iconButton}
                 onPress={onNavigateArchive}
                 accessibilityLabel="View past seasons"
               >
-                <Text style={[s.iconText, { color: theme.text.secondary }]}>🌿</Text>
+                <Text style={[styles.iconText, { color: theme.text.secondary }]}>🌿</Text>
               </TouchableOpacity>
             )}
+
             <TouchableOpacity
-              style={s.iconButton}
+              style={styles.iconButton}
               onPress={onNavigateHistory}
               accessibilityLabel="View history"
             >
-              <Text style={[s.historyIcon, { color: theme.text.secondary }]}>☰</Text>
+              <Text style={[styles.iconText, { color: theme.text.secondary }]}>☰</Text>
             </TouchableOpacity>
+
+            {__DEV__ && onDevReset && (
+              <TouchableOpacity style={styles.iconButton} onPress={onDevReset}>
+                <Text style={[styles.iconText, { color: theme.ui.danger }]}>↺</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {__DEV__ && onDevReset && (
-            <TouchableOpacity style={s.devResetButton} onPress={onDevReset}>
-              <Text style={s.devResetText}>↺</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* Streak reset message */}
         {streakResetMsg && (
-          <View style={[s.resetBanner, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
-            <Text style={[s.resetMsg, { color: theme.text.secondary }]}>
+          <View
+            style={[
+              styles.resetBanner,
+              {
+                backgroundColor: theme.background.secondary,
+                borderColor: theme.ui.border,
+              },
+            ]}
+          >
+            <Text style={[styles.resetText, { color: theme.text.secondary }]}>
               You missed a day. It happens. Your streak resets but your garden stays.
             </Text>
           </View>
         )}
+      </View>
 
-        {/* Scene canvas */}
-        <View style={{ flex: 1 }}>
-          <SceneCanvas
-            width={width}
-            height={height * 0.72}
-            colors={sceneColors}
-            theme={theme}
-            plants={plants}
-            wins={wins}
-            onPlantTap={handlePlantTap}
-          />
-        </View>
+      {/* ───────────────── Middle area: garden only ───────────────── */}
+      <View style={styles.gardenSection} onLayout={handleGardenLayout}>
+        <SceneCanvas
+          width={width}
+          height={gardenHeight}
+          colors={sceneColors}
+          theme={theme}
+          plants={plants}
+          wins={wins}
+          onPlantTap={handlePlantTap}
+        />
+      </View>
 
-        {/* FAB */}
-        <View style={s.fabContainer}>
-          <TouchableOpacity
-            style={[s.fab, { backgroundColor: theme.brand.mid }]}
-            onPress={() => setSheetVisible(true)}
-            accessibilityLabel="Log a win"
-          >
-            <Text style={[s.fabText, { color: theme.text.inverse }]}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      {/* ───────────────── Bottom area: CTA only ───────────────── */}
+      <View
+        style={[
+          styles.bottomSection,
+          {
+            paddingBottom: bottomInset,
+            backgroundColor: 'transparent',
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.ctaButton,
+            {
+              backgroundColor: reachedDailyLimit
+                ? theme.background.tertiary
+                : theme.brand.mid,
+            },
+          ]}
+          onPress={() => !reachedDailyLimit && setSheetVisible(true)}
+          activeOpacity={reachedDailyLimit ? 1 : 0.85}
+          accessibilityLabel="Log a win"
+        >
+          <View style={styles.ctaLeft}>
+            <View style={styles.ctaDots}>
+              {Array.from({ length: MAX_DAILY_WINS }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.ctaDot,
+                    {
+                      backgroundColor:
+                        i < todayCount
+                          ? reachedDailyLimit
+                            ? theme.text.tertiary
+                            : theme.text.inverse
+                          : reachedDailyLimit
+                            ? 'rgba(255,255,255,0.10)'
+                            : 'rgba(255,255,255,0.30)',
+                    },
+                  ]}
+                />
+              ))}
+            </View>
 
+            <Text
+              style={[
+                styles.ctaText,
+                {
+                  color: reachedDailyLimit
+                    ? theme.text.tertiary
+                    : theme.text.inverse,
+                },
+              ]}
+            >
+              {getCtaLabel()}
+            </Text>
+          </View>
+
+          {!reachedDailyLimit && (
+            <Text style={[styles.ctaPlus, { color: theme.text.inverse }]}>+</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* ───────────────── Sheets / overlays ───────────────── */}
       <LogWinSheet
         visible={sheetVisible}
-        todayWinCount={todayWins.length}
+        todayWinCount={todayCount}
         onSubmit={handleAddWin}
         onClose={() => setSheetVisible(false)}
       />
@@ -224,102 +342,153 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onDevReset }: Prop
   )
 }
 
-const makeStyles = (theme: Theme) =>
-  StyleSheet.create({
-    statsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 14,
-      borderBottomWidth: 1,
-    },
-    statItem: {
-      alignItems: 'center',
-      flex: 1,
-    },
-    statNumber: {
-      fontSize: 28,
-      fontWeight: '700',
-    },
-    statLabel: {
-      fontSize: 11,
-      marginTop: 1,
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
-    graceIndicator: {
-      fontSize: 10,
-      marginTop: 2,
-      letterSpacing: 0.4,
-    },
-    statDivider: {
-      width: 1,
-      height: 36,
-      marginHorizontal: 12,
-    },
-    navButtons: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginLeft: 4,
-    },
-    iconButton: {
-      padding: 8,
-    },
-    iconText: {
-      fontSize: 18,
-    },
-    historyIcon: {
-      fontSize: 22,
-    },
-    fabContainer: {
-      position: 'absolute',
-      bottom: 36,
-      alignSelf: 'center',
-      left: 0,
-      right: 0,
-      alignItems: 'center',
-    },
-    fab: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 6,
-      elevation: 6,
-    },
-    fabText: {
-      fontSize: 32,
-      lineHeight: 36,
-      fontWeight: '300',
-    },
-    resetBanner: {
-      marginHorizontal: 16,
-      marginTop: 10,
-      padding: 12,
-      borderRadius: 10,
-      borderWidth: 1,
-    },
-    resetMsg: {
-      fontSize: 12,
-      lineHeight: 18,
-      textAlign: 'center',
-    },
-    devResetButton: {
-      marginLeft: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 6,
-      backgroundColor: 'rgba(200,0,0,0.25)',
-    },
-    devResetText: {
-      color: '#ff6b6b',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-  })
+const styles = StyleSheet.create({
+  // ───────────────── Screen layout ─────────────────
+  screen: {
+    flex: 1,
+  },
+
+  topSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+
+  gardenSection: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+
+  bottomSection: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+
+  // ───────────────── Header ─────────────────
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+  },
+
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 12,
+  },
+
+  statChip: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+
+  statValue: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+
+  statUnit: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+
+  statDivider: {
+    width: 1,
+    height: 18,
+    marginHorizontal: 14,
+  },
+
+  graceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    marginLeft: 4,
+    marginBottom: 2,
+  },
+
+  iconButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+
+  iconText: {
+    fontSize: 20,
+  },
+
+  // ───────────────── Banner ─────────────────
+  resetBanner: {
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  resetText: {
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+
+  // ───────────────── CTA ─────────────────
+  ctaButton: {
+    minHeight: 58,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+
+  ctaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+  },
+
+  ctaDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  ctaDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+  },
+
+  ctaText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+
+  ctaPlus: {
+    fontSize: 22,
+    fontWeight: '300',
+    marginLeft: 12,
+    opacity: 0.8,
+  },
+})
 
 export default GardenScreen

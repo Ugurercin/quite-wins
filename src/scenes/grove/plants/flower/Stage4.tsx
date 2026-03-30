@@ -8,34 +8,23 @@ import {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import { SceneColors } from '@/scenes/types'
-
-interface Props {
-  x: number
-  y: number
-  colors: SceneColors
-  accentColor?: string
-}
+import { StageProps } from '../plantTypes'
 
 const PETAL_R = 9
 const PETAL_SPREAD = PETAL_R + 3
 const DIAG = 0.7
 
-// Stage 4 — Fully flowering plant. Bloom animation on mount.
-const Bloomed = ({ x, y, colors, accentColor }: Props) => {
+// Flower — Stage 4: Fully flowering. Bloom animation on mount.
+const Stage4 = ({ x, y, colors, accentColor }: StageProps) => {
   const stemHeight = 72
   const flowerCy = y - stemHeight - 8
   const flowerColor = accentColor ?? colors.bloom
 
   const bloom = useSharedValue(0)
-
   useEffect(() => {
     bloom.value = withSequence(
       withTiming(0, { duration: 0 }),
-      withDelay(
-        200,
-        withTiming(1, { duration: 1800, easing: Easing.out(Easing.back(1.2)) })
-      )
+      withDelay(200, withTiming(1, { duration: 1800, easing: Easing.out(Easing.back(1.2)) }))
     )
   }, [])
 
@@ -44,11 +33,10 @@ const Bloomed = ({ x, y, colors, accentColor }: Props) => {
   const centerR = useDerivedValue(() => bloom.value * 7)
   const highlightR = useDerivedValue(() => bloom.value * 3.5)
 
-  const petalN_cy = useDerivedValue(() => flowerCy - bloom.value * PETAL_SPREAD)
-  const petalS_cy = useDerivedValue(() => flowerCy + bloom.value * PETAL_SPREAD)
-  const petalE_cx = useDerivedValue(() => x + bloom.value * PETAL_SPREAD)
-  const petalW_cx = useDerivedValue(() => x - bloom.value * PETAL_SPREAD)
-
+  const petalN_cy  = useDerivedValue(() => flowerCy - bloom.value * PETAL_SPREAD)
+  const petalS_cy  = useDerivedValue(() => flowerCy + bloom.value * PETAL_SPREAD)
+  const petalE_cx  = useDerivedValue(() => x + bloom.value * PETAL_SPREAD)
+  const petalW_cx  = useDerivedValue(() => x - bloom.value * PETAL_SPREAD)
   const petalNE_cx = useDerivedValue(() => x + bloom.value * PETAL_SPREAD * DIAG)
   const petalNE_cy = useDerivedValue(() => flowerCy - bloom.value * PETAL_SPREAD * DIAG)
   const petalNW_cx = useDerivedValue(() => x - bloom.value * PETAL_SPREAD * DIAG)
@@ -119,7 +107,6 @@ const Bloomed = ({ x, y, colors, accentColor }: Props) => {
       <Circle cx={petalNW_cx} cy={petalNW_cy} r={prSmall} color={flowerColor} opacity={0.85} />
       <Circle cx={petalSE_cx} cy={petalSE_cy} r={prSmall} color={flowerColor} opacity={0.85} />
       <Circle cx={petalSW_cx} cy={petalSW_cy} r={prSmall} color={flowerColor} opacity={0.85} />
-
       <Circle cx={x} cy={flowerCy} r={centerR} color={colors.bloom} />
       <Circle cx={x - 1} cy={flowerCy - 1} r={highlightR} color={colors.bodyLight} opacity={0.5} />
       <Circle cx={x} cy={y - 2} r={3} color={flowerColor} opacity={0.7} />
@@ -127,4 +114,4 @@ const Bloomed = ({ x, y, colors, accentColor }: Props) => {
   )
 }
 
-export default Bloomed
+export default Stage4
