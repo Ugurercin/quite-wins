@@ -20,6 +20,10 @@ import PlantPopup from '@/components/PlantPopup'
 import SeasonRecapOverlay from '@/components/SeasonRecapOverlay'
 import ScenePickerSheet from '@/components/ScenePickerSheet'
 import { useActiveScene } from '@/hooks/useActiveScene'
+import { COPY } from '@/constants/copy'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { STORAGE_KEYS } from '@/storage/keys'
+import { onWinLogged } from '@/notifications/notifications'
 
 interface Props {
   onNavigateHistory: () => void
@@ -83,6 +87,8 @@ const GardenScreen = ({
     const updatedPlants = await growPlant(win.id, currentSeason.id)
     await updateStreak()
     setSheetVisible(false)
+    const notifTime = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_TIME) ?? '20:00'
+    await onWinLogged(todayCount + 1, notifTime)
 
     if (isSeasonComplete(updatedPlants)) {
       const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
@@ -133,12 +139,12 @@ const GardenScreen = ({
   }
 
   const ctaLabel = reachedDailyLimit
-    ? "That's 3 for today 🌿"
+    ? COPY.garden.cta.limitReached
     : todayCount === 0
-      ? 'Plant a win'
+      ? COPY.garden.cta.plant
       : todayCount === 1
-        ? 'Plant another win'
-        : 'One more slot left'
+        ? COPY.garden.cta.plantAnother
+        : COPY.garden.cta.oneLeft
 
   return (
     <View style={styles.screen}>
@@ -169,7 +175,7 @@ const GardenScreen = ({
         {/* Row 1: slogan left, icons right */}
         <View style={styles.heroRow}>
           <Text style={[styles.slogan, { color: 'rgba(255,255,255,0.38)' }]}>
-            the small stuff adds up
+            {COPY.garden.slogan}
           </Text>
           <View style={styles.iconRow}>
             {completedCount > 0 && (
@@ -245,7 +251,7 @@ const GardenScreen = ({
       {streakResetMsg && (
         <View style={[styles.resetBanner, { top: insets.top + 80 }]}>
           <Text style={styles.resetText}>
-            You missed a day. Your streak resets, but your garden stays.
+            {COPY.garden.streakReset}
           </Text>
         </View>
       )}

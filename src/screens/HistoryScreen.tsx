@@ -15,6 +15,7 @@ import { useHistory } from '@/hooks/useHistory'
 import { usePlants } from '@/hooks/usePlants'
 import { useStreak } from '@/hooks/useStreak'
 import SwipeableWinRow from '@/components/SwipeableWinRow'
+import { COPY } from '@/constants/copy'
 
 interface Props {
   onBack: () => void
@@ -90,7 +91,7 @@ const HistoryScreen = ({ onBack }: Props) => {
               <View style={s.headerCenter}>
                 <Text style={[s.title, { color: theme.text.primary }]}>History</Text>
                 <Text style={[s.subtitle, { color: theme.text.tertiary }]}>
-                  Every small win you logged
+                  {COPY.history.subtitle}
                 </Text>
               </View>
 
@@ -145,7 +146,7 @@ const HistoryScreen = ({ onBack }: Props) => {
               ]}
             >
               <Text style={[s.resetMsg, { color: theme.text.secondary }]}>
-                You missed a day. It happens. Your streak resets but your garden stays.
+                {COPY.history.streakReset}
               </Text>
             </View>
           )}
@@ -163,10 +164,10 @@ const HistoryScreen = ({ onBack }: Props) => {
                 ]}
               >
                 <Text style={[s.emptyTitle, { color: theme.text.primary }]}>
-                  No wins yet
+                  {COPY.history.emptyTitle}
                 </Text>
                 <Text style={[s.emptyText, { color: theme.text.tertiary }]}>
-                  Your logged wins will appear here.{'\n'}Go plant your first one.
+                  {COPY.history.emptyBody}
                 </Text>
               </View>
             </View>

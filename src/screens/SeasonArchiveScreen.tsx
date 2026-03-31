@@ -15,6 +15,7 @@ import { useSeasons, Season } from '@/hooks/useSeasons'
 import { Win } from '@/hooks/useWins'
 import { STORAGE_KEYS } from '@/storage/keys'
 import SeasonSnapshotModal from '@/screens/SeasonSnapshotModal'
+import { COPY } from '@/constants/copy'
 
 interface Props {
   onBack: () => void
@@ -69,13 +70,13 @@ const SeasonArchiveScreen = ({ onBack }: Props) => {
         {completedSeasons.length === 0 ? (
           <View style={s.empty}>
             <Text style={[s.emptyText, { color: theme.text.tertiary }]}>
-              No completed seasons yet.{'\n'}Keep growing.
+              {COPY.archive.emptyText}
             </Text>
           </View>
         ) : (
           <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
             <Text style={[s.intro, { color: theme.text.tertiary }]}>
-              Each season is a chapter. Tap one to see what you grew.
+              {COPY.archive.intro}
             </Text>
             {completedSeasons.map(season => (
               <TouchableOpacity

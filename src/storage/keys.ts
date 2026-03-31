@@ -9,4 +9,5 @@ export const STORAGE_KEYS = {
   MUSIC_ENABLED: 'qw_music_enabled',
   SFX_ENABLED: 'qw_sfx_enabled',
   ACTIVE_SCENE: 'qw_active_scene',
+  LAST_NOTIF_INDEX: 'qw_last_notif_index',
 } as const

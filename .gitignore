@@ -62,3 +62,6 @@ yarn-error.log*
 
 # Testing
 coverage/
+
+CLAUDE.md
+TASK.md

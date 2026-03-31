@@ -17,6 +17,8 @@ import { useTheme } from '@/theme'
 import { useAudio } from '@/audio/useAudio'
 import { STORAGE_KEYS } from '@/storage/keys'
 import { Theme } from '@/theme/theme'
+import { COPY } from '@/constants/copy'
+import { scheduleDailyNotification } from '@/notifications/notifications'
 
 // expo-constants is a standard Expo transitive dep — install with: npx expo install expo-constants
 let appVersion = '1.0.0'
@@ -75,6 +77,12 @@ const SettingsScreen = ({ onBack }: Props) => {
     if (/^\d{1,2}:\d{2}$/.test(trimmed)) {
       setNotifTime(trimmed)
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATION_TIME, trimmed)
+
+      const winsRaw = await AsyncStorage.getItem(STORAGE_KEYS.WINS)
+      const wins = winsRaw ? JSON.parse(winsRaw) : []
+      const today = new Date().toISOString().split('T')[0]
+      const todayWinCount = wins.filter((w: any) => w.createdAt.startsWith(today)).length
+      await scheduleDailyNotification(trimmed, todayWinCount)
     }
     setEditingTime(false)
   }
@@ -104,15 +112,15 @@ const SettingsScreen = ({ onBack }: Props) => {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Sound ── */}
-        <SectionLabel text="SOUND" theme={theme} s={s} />
+        <SectionLabel text={COPY.settings.sections.sound} theme={theme} s={s} />
         <View style={[s.card, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
-          <ToggleRow label="Music" value={musicEnabled} onChange={handleMusicToggle} theme={theme} s={s} />
+          <ToggleRow label={COPY.settings.rows.music} value={musicEnabled} onChange={handleMusicToggle} theme={theme} s={s} />
           <View style={[s.divider, { backgroundColor: theme.ui.border }]} />
-          <ToggleRow label="Sound effects" value={sfxEnabled} onChange={handleSfxToggle} theme={theme} s={s} />
+          <ToggleRow label={COPY.settings.rows.sfx} value={sfxEnabled} onChange={handleSfxToggle} theme={theme} s={s} />
         </View>
 
         {/* ── Preferences ── */}
-        <SectionLabel text="PREFERENCES" theme={theme} s={s} />
+        <SectionLabel text={COPY.settings.sections.preferences} theme={theme} s={s} />
         <View style={[s.card, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
           {/* Notification time */}
           <TouchableOpacity
@@ -120,7 +128,7 @@ const SettingsScreen = ({ onBack }: Props) => {
             onPress={() => { setTimeInput(notifTime); setEditingTime(true) }}
             activeOpacity={0.8}
           >
-            <Text style={[s.rowLabel, { color: theme.text.primary }]}>Notification time</Text>
+            <Text style={[s.rowLabel, { color: theme.text.primary }]}>{COPY.settings.rows.notifTime}</Text>
             {editingTime ? (
               <View style={s.timeEditRow}>
                 <TextInput
@@ -150,7 +158,7 @@ const SettingsScreen = ({ onBack }: Props) => {
 
           {/* Theme */}
           <View style={s.row}>
-            <Text style={[s.rowLabel, { color: theme.text.primary }]}>Theme</Text>
+            <Text style={[s.rowLabel, { color: theme.text.primary }]}>{COPY.settings.rows.theme}</Text>
             <View style={[s.segmented, { backgroundColor: theme.background.tertiary, borderColor: theme.ui.border }]}>
               {(['system', 'light', 'dark'] as ThemeMode[]).map(m => (
                 <TouchableOpacity
@@ -169,16 +177,16 @@ const SettingsScreen = ({ onBack }: Props) => {
         </View>
 
         {/* ── Connect ── */}
-        <SectionLabel text="CONNECT" theme={theme} s={s} />
+        <SectionLabel text={COPY.settings.sections.connect} theme={theme} s={s} />
         <View style={[s.card, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
-          <LinkRow label="Send feedback" url="mailto:YOUR@EMAIL.com" theme={theme} s={s} />
+          <LinkRow label={COPY.settings.rows.feedback} url="mailto:YOUR@EMAIL.com" theme={theme} s={s} />
           <View style={[s.divider, { backgroundColor: theme.ui.border }]} />
-          <LinkRow label="Join the newsletter" url="YOUR_NEWSLETTER_URL" theme={theme} s={s} />
+          <LinkRow label={COPY.settings.rows.newsletter} url="YOUR_NEWSLETTER_URL" theme={theme} s={s} />
           <View style={[s.divider, { backgroundColor: theme.ui.border }]} />
-          <LinkRow label="Follow on X" url="YOUR_X_URL" theme={theme} s={s} />
+          <LinkRow label={COPY.settings.rows.social} url="YOUR_X_URL" theme={theme} s={s} />
           <View style={[s.divider, { backgroundColor: theme.ui.border }]} />
           <LinkRow
-            label="Leave a review"
+            label={COPY.settings.rows.review}
             url={Platform.OS === 'ios' ? 'YOUR_APP_STORE_URL' : 'YOUR_PLAY_STORE_URL'}
             theme={theme}
             s={s}

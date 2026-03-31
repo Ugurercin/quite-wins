@@ -25,6 +25,7 @@ import { useSeasons } from '@/hooks/useSeasons'
 import { useAudio } from '@/audio/useAudio'
 import GardenCanvas from '@/scenes/grove/GardenCanvas'
 import { DEFAULT_SCENE } from '@/scenes'
+import { COPY } from '@/constants/copy'
 
 const QUICK_EMOJIS = ['✨', '💪', '📚', '🎯', '🏃', '⭐', '❤️', '🚀', '🌟', '🎉']
 
@@ -188,19 +189,18 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               ]}
             >
               <Text style={[s.kickerBadgeText, { color: theme.text.secondary }]}>
-                ✨ Tiny wins, real momentum
+                {COPY.onboarding.hero.kicker}
               </Text>
             </View>
 
-            <Text style={[s.appNameHero, { color: theme.text.primary }]}>Quiet Wins</Text>
+            <Text style={[s.appNameHero, { color: theme.text.primary }]}>{COPY.onboarding.hero.appName}</Text>
 
             <Text style={[s.heroTitle, { color: theme.text.primary }]}>
-              Grow a little world from the things you did right.
+              {COPY.onboarding.hero.title}
             </Text>
 
             <Text style={[s.heroSubtitle, { color: theme.text.secondary }]}>
-              Log small moments, keep your streak alive, and watch your garden slowly come to
-              life.
+              {COPY.onboarding.hero.subtitle}
             </Text>
 
             <View style={s.featurePills}>
@@ -214,7 +214,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                 ]}
               >
                 <Text style={s.featureEmoji}>🌱</Text>
-                <Text style={[s.featureText, { color: theme.text.primary }]}>Plant your wins</Text>
+                <Text style={[s.featureText, { color: theme.text.primary }]}>{COPY.onboarding.features.wins}</Text>
               </View>
 
               <View
@@ -227,7 +227,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                 ]}
               >
                 <Text style={s.featureEmoji}>🔥</Text>
-                <Text style={[s.featureText, { color: theme.text.primary }]}>Build streaks</Text>
+                <Text style={[s.featureText, { color: theme.text.primary }]}>{COPY.onboarding.features.streaks}</Text>
               </View>
 
               <View
@@ -240,7 +240,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                 ]}
               >
                 <Text style={s.featureEmoji}>🪴</Text>
-                <Text style={[s.featureText, { color: theme.text.primary }]}>See it grow</Text>
+                <Text style={[s.featureText, { color: theme.text.primary }]}>{COPY.onboarding.features.grow}</Text>
               </View>
             </View>
 
@@ -250,12 +250,12 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               activeOpacity={0.9}
             >
               <Text style={[s.heroPrimaryBtnText, { color: theme.text.inverse }]}>
-                Start my garden
+                {COPY.onboarding.cta.start}
               </Text>
             </TouchableOpacity>
 
             <Text style={[s.heroFootnote, { color: theme.text.tertiary }]}>
-              Takes less than a minute
+              {COPY.onboarding.hero.footnote}
             </Text>
           </View>
         </View>
@@ -271,7 +271,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
         <View style={s.stepShell}>
           {renderTopBar({
             currentStep: 2,
-            title: 'A small reminder.',
+            title: COPY.onboarding.stepTitles.step2,
             showBack: true,
             onBack: () => setStep(1),
           })}
@@ -296,22 +296,20 @@ const OnboardingScreen = ({ onComplete }: Props) => {
             >
               <Text style={s.inspoBadgeEmoji}>🌤️</Text>
               <Text style={[s.inspoBadgeText, { color: theme.text.secondary }]}>
-                You are doing more than you think
+                {COPY.onboarding.step2.badge}
               </Text>
             </View>
 
             <Text style={[s.inspoTitle, { color: theme.text.primary }]}>
-              A lot of good things in your day go unnoticed.
+              {COPY.onboarding.step2.title}
             </Text>
 
             <Text style={[s.inspoBody, { color: theme.text.secondary }]}>
-              The walk you took. The task you finished. The message you finally answered. The
-              moment you kept going even when you were tired.
+              {COPY.onboarding.step2.body1}
             </Text>
 
             <Text style={[s.inspoBody, { color: theme.text.secondary }]}>
-              It may not always feel like it adds up, but it does. You are doing fine. Keep
-              showing up, and let the small things count.
+              {COPY.onboarding.step2.body2}
             </Text>
 
             <View
@@ -324,7 +322,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               ]}
             >
               <Text style={[s.inspoQuote, { color: theme.text.primary }]}>
-                Tiny wins still move your life forward.
+                {COPY.onboarding.step2.quote}
               </Text>
             </View>
 
@@ -334,7 +332,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               activeOpacity={0.9}
             >
               <Text style={[s.primaryBtnText, { color: theme.text.inverse }]}>
-                Let’s keep going
+                {COPY.onboarding.step2.cta}
               </Text>
             </TouchableOpacity>
           </View>
@@ -351,7 +349,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
         <View style={s.stepShell}>
           {renderTopBar({
             currentStep: 3,
-            title: 'Why Quiet Wins stays small.',
+            title: COPY.onboarding.stepTitles.step3,
             showBack: true,
             onBack: () => setStep(2),
           })}
@@ -376,17 +374,16 @@ const OnboardingScreen = ({ onComplete }: Props) => {
             >
               <Text style={s.limitBadgeEmoji}>🌱</Text>
               <Text style={[s.limitBadgeText, { color: theme.text.secondary }]}>
-                Gentle by design
+                {COPY.onboarding.step3.badge}
               </Text>
             </View>
 
             <Text style={[s.limitTitle, { color: theme.text.primary }]}>
-              You don’t need to log everything.
+              {COPY.onboarding.step3.title}
             </Text>
 
             <Text style={[s.limitBody, { color: theme.text.secondary }]}>
-              Quiet Wins works best in small doses. A soft daily limit helps your wins stay
-              meaningful instead of turning into another task list.
+              {COPY.onboarding.step3.body}
             </Text>
 
             <View style={s.limitPoints}>
@@ -402,10 +399,10 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                 <Text style={s.limitPointEmoji}>✨</Text>
                 <View style={s.limitPointTextWrap}>
                   <Text style={[s.limitPointTitle, { color: theme.text.primary }]}>
-                    Keeps it intentional
+                    {COPY.onboarding.step3.point1Title}
                   </Text>
                   <Text style={[s.limitPointSub, { color: theme.text.secondary }]}>
-                    A few wins a day matters more than dumping everything at once.
+                    {COPY.onboarding.step3.point1Sub}
                   </Text>
                 </View>
               </View>
@@ -422,10 +419,10 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                 <Text style={s.limitPointEmoji}>🌙</Text>
                 <View style={s.limitPointTextWrap}>
                   <Text style={[s.limitPointTitle, { color: theme.text.primary }]}>
-                    Gives tomorrow a place
+                    {COPY.onboarding.step3.point2Title}
                   </Text>
                   <Text style={[s.limitPointSub, { color: theme.text.secondary }]}>
-                    Your garden grows over time, not all in one sitting.
+                    {COPY.onboarding.step3.point2Sub}
                   </Text>
                 </View>
               </View>
@@ -441,7 +438,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               ]}
             >
               <Text style={[s.limitQuote, { color: theme.text.primary }]}>
-                A few small wins a day is plenty.
+                {COPY.onboarding.step3.quote}
               </Text>
             </View>
 
@@ -451,7 +448,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               activeOpacity={0.9}
             >
               <Text style={[s.primaryBtnText, { color: theme.text.inverse }]}>
-                That makes sense
+                {COPY.onboarding.step3.cta}
               </Text>
             </TouchableOpacity>
           </View>
@@ -462,10 +459,10 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   if (step === 4) {
     const options: { key: NotifOption; label: string; sub: string; emoji: string }[] = [
-      { key: 'morning', label: 'Morning', sub: 'Start the day gently · 9:00 AM', emoji: '🌤️' },
-      { key: 'evening', label: 'Evening', sub: 'Reflect before bed · 8:00 PM', emoji: '🌙' },
-      { key: 'custom', label: 'Custom time', sub: 'Choose what fits your rhythm', emoji: '⏰' },
-      { key: 'skip', label: 'Skip for now', sub: 'You can always enable it later', emoji: '🤫' },
+      { key: 'morning', label: COPY.onboarding.step4.options.morning.label, sub: COPY.onboarding.step4.options.morning.sub, emoji: '🌤️' },
+      { key: 'evening', label: COPY.onboarding.step4.options.evening.label, sub: COPY.onboarding.step4.options.evening.sub, emoji: '🌙' },
+      { key: 'custom', label: COPY.onboarding.step4.options.custom.label, sub: COPY.onboarding.step4.options.custom.sub, emoji: '⏰' },
+      { key: 'skip', label: COPY.onboarding.step4.options.skip.label, sub: COPY.onboarding.step4.options.skip.sub, emoji: '🤫' },
     ]
 
     return (
@@ -475,7 +472,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
         <View style={s.stepShell}>
           {renderTopBar({
             currentStep: 4,
-            title: 'When should we remind you?',
+            title: COPY.onboarding.stepTitles.step4,
             showBack: true,
             onBack: () => setStep(3),
           })}
@@ -490,7 +487,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
             ]}
           >
             <Text style={[s.stepLead, { color: theme.text.secondary }]}>
-              Just one gentle nudge a day.
+              {COPY.onboarding.step4.lead}
             </Text>
 
             <View style={s.optionListLarge}>
@@ -601,7 +598,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               disabled={!notifOption}
               activeOpacity={0.9}
             >
-              <Text style={[s.primaryBtnText, { color: theme.text.inverse }]}>Continue</Text>
+              <Text style={[s.primaryBtnText, { color: theme.text.inverse }]}>{COPY.onboarding.step4.cta}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -628,7 +625,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                 <View style={s.stepShell}>
                   {renderTopBar({
                     currentStep: 5,
-                    title: "What's one thing you did today?",
+                    title: COPY.onboarding.stepTitles.step5,
                     showBack: true,
                     onBack: () => setStep(4),
                   })}
@@ -643,7 +640,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                     ]}
                   >
                     <Text style={[s.stepLead, { color: theme.text.secondary }]}>
-                      Anything counts. Big or small. This is your first planted win.
+                      {COPY.onboarding.step5.lead}
                     </Text>
 
                     <View
@@ -658,10 +655,10 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                       <Text style={s.pickedEmojiLarge}>{winEmoji}</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={[s.pickedEmojiTitle, { color: theme.text.primary }]}>
-                          Pick the vibe
+                          {COPY.onboarding.step5.emojiPickerTitle}
                         </Text>
                         <Text style={[s.pickedEmojiSub, { color: theme.text.secondary }]}>
-                          Choose an emoji that matches your win.
+                          {COPY.onboarding.step5.emojiPickerSub}
                         </Text>
                       </View>
                     </View>
@@ -709,7 +706,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                       ]}
                     >
                       <Text style={[s.inlineInputLabel, { color: theme.text.secondary }]}>
-                        Your first win
+                        {COPY.onboarding.step5.inputLabel}
                       </Text>
 
                       <TextInput
@@ -721,7 +718,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                             borderColor: theme.ui.border,
                           },
                         ]}
-                        placeholder="e.g. Went for a walk, answered that hard message, finished a small task..."
+                        placeholder={COPY.onboarding.step5.placeholder}
                         placeholderTextColor={theme.text.tertiary}
                         value={winText}
                         onChangeText={setWinText}
@@ -747,7 +744,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
                       activeOpacity={0.9}
                     >
                       <Text style={[s.primaryBtnText, { color: theme.text.inverse }]}>
-                        Plant this win
+                        {COPY.onboarding.step5.cta}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -767,7 +764,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
       <View style={s.stepShell}>
         {renderTopBar({
           currentStep: 6,
-          title: 'Here it is.',
+          title: COPY.onboarding.stepTitles.step6,
           showBack: false,
         })}
 
@@ -823,10 +820,10 @@ const OnboardingScreen = ({ onComplete }: Props) => {
             ]}
           >
             <Text style={[s.revealTitle, { color: theme.text.primary }]}>
-              Your garden has started.
+              {COPY.onboarding.step6.title}
             </Text>
             <Text style={[s.revealSub, { color: theme.text.secondary }]}>
-              Every small thing you log adds a little more life to this space.
+              {COPY.onboarding.step6.sub}
             </Text>
 
             <TouchableOpacity
@@ -835,7 +832,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
               activeOpacity={0.9}
             >
               <Text style={[s.primaryBtnText, { color: theme.text.inverse }]}>
-                Go to my garden
+                {COPY.onboarding.step6.cta}
               </Text>
             </TouchableOpacity>
           </View>

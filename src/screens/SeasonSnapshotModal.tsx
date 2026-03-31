@@ -14,6 +14,7 @@ import { Plant } from '@/hooks/usePlants'
 import { Win } from '@/hooks/useWins'
 import GardenCanvas from '@/scenes/grove/GardenCanvas'
 import { DEFAULT_SCENE } from '@/scenes'
+import { COPY } from '@/constants/copy'
 
 interface Props {
   season: Season | null
@@ -68,7 +69,7 @@ const SeasonSnapshotModal = ({ season, plants, wins, theme, onClose }: Props) =>
         </View>
 
         <Text style={[s.hint, { color: theme.text.tertiary }]}>
-          A snapshot of everything you grew.
+          {COPY.snapshot.hint}
         </Text>
       </View>
     </Modal>
