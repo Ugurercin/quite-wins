@@ -2,6 +2,7 @@ import { Scene } from '@/scenes/types'
 import { getGroveColors } from './colors'
 import groveMusic from './music'
 import GardenCanvas from './GardenCanvas'
+import PreviewCanvas from './PreviewCanvas'
 
 const grove: Scene = {
   id: 'grove',
@@ -10,6 +11,7 @@ const grove: Scene = {
   music: groveMusic,
   getColors: getGroveColors,
   Canvas: GardenCanvas,
+  PreviewCanvas,
 }
 
 export default grove

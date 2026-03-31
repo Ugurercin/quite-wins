@@ -37,6 +37,12 @@ export interface CanvasProps {
 // The contract every scene must fulfill.
 // Add a new scene by creating a folder and exporting an object matching this shape.
 
+export interface PreviewCanvasProps {
+  width: number
+  height: number
+  colors: SceneColors
+}
+
 export interface Scene {
   id: string
   name: string
@@ -44,4 +50,5 @@ export interface Scene {
   music: any            // require()'d mp3 — null if no music yet
   getColors: (theme: Theme) => SceneColors   // derives colors from current theme
   Canvas: React.ComponentType<CanvasProps>
+  PreviewCanvas?: React.ComponentType<PreviewCanvasProps>
 }

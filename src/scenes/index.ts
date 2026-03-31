@@ -1,5 +1,6 @@
 import { Scene } from './types'
 import grove from './grove'
+import night from './night'
 
 // ─── Registry ────────────────────────────────────────────────────────────────
 // Add new scenes here as you build them. That's it.
@@ -7,8 +8,8 @@ import grove from './grove'
 
 export const SCENES: Scene[] = [
   grove,
+  night,
   // desert,   ← uncomment when ready
-  // night,    ← uncomment when ready
 ]
 
 export const DEFAULT_SCENE = grove

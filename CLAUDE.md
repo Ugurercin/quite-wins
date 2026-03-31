@@ -206,12 +206,6 @@ Copy:
 
 ---
 
-### Settings
-In the Screens section, expand the Settings entry to:
-Settings — notification time, theme toggle (system/light/dark), music toggle, SFX toggle, Connect section (email, newsletter, social, App Store review). Pushed as a new screen from the gear icon on GardenScreen.
-
----
-
 ## Audio System
 - Library: `expo-av`
 - Respects device silent mode (`playsInSilentModeIOS: false`)
@@ -258,25 +252,70 @@ src/scenes/
 
 ### Key interfaces (see `src/scenes/types.ts` for full source)
 ```typescript
-SceneColors { trunk, bodyDark, bodyMid, bodyLight, sprout, bloom, backgroundGarden, backgroundGround }
+SceneColors  { trunk, bodyDark, bodyMid, bodyLight, sprout, bloom, backgroundGarden, backgroundGround }
 CanvasProps  { width, height, colors: SceneColors, theme: Theme, plants, wins, onPlantTap? }
-Scene        { id, name, locked, music, getColors(theme): SceneColors, Canvas }
+Scene        { id, name, locked, music, getColors(theme): SceneColors, Canvas, PreviewCanvas? }
+// PreviewCanvas: React.ComponentType<{ width, height, colors: SceneColors }>
+// Optional — renders background only (no plants) for the scene picker card.
+// If absent, picker falls back to a solid backgroundGarden color swatch.
 ```
 
 ### GardenScreen usage
 ```typescript
-const scene = DEFAULT_SCENE
-const sceneColors = scene.getColors(theme)
-<scene.Canvas width={w} height={h*0.72} colors={sceneColors} theme={theme} plants={plants} wins={wins} onPlantTap={handlePlantTap} />
+const { activeScene } = useActiveScene()   // hook reads qw_active_scene from AsyncStorage
+const sceneColors = activeScene.getColors(theme)
+<activeScene.Canvas width={w} height={h*0.72} colors={sceneColors} theme={theme} plants={plants} wins={wins} onPlantTap={handlePlantTap} />
 ```
 
-### To add a new plant type
-1. Create `src/scenes/grove/plants/{type}/Stage1–4.tsx` + `elders/Elder{Type}.tsx`
-2. Import into `PlantNode.tsx`, add to `STAGE_REGISTRY` + `ELDER_REGISTRY`
+### Scene picker
+- Opened via a pill button (bottom-left of GardenScreen, opposite the "+" button)
+- Horizontal scroll of scene cards (~140×100px), each renders `scene.PreviewCanvas` or color fallback
+- Active scene: `theme.brand.light` border + checkmark overlay
+- Locked scene: dark overlay + lock icon + *"Coming soon"* on tap (no IAP yet)
+- Implemented in `src/components/ScenePickerSheet.tsx`
+- Active scene persisted to `qw_active_scene` via `src/hooks/useActiveScene.ts`
+
+### Registered scenes
+| id | Name | Locked | Status |
+|----|------|--------|--------|
+| `grove` | Grove | false | ✅ Built |
+| `night` | Night Grove | true | ✅ Built |
+
+### Night Grove — `src/scenes/night/`
+Fully self-contained. Zero imports from `src/scenes/grove/`.
+
+**Identity:** Deep navy sky, moon with halo glow, twinkling stars (staggered), fireflies drifting across lower canvas, dark hill silhouette, deep earth ground.
+
+**Colors (mostly fixed — moonlight doesn't shift with light/dark mode):**
+```
+trunk:            '#2A2D1A'   deep charcoal brown
+bodyDark:         '#0D1F0D'   deep midnight green
+bodyMid:          '#1E3D2A'   moonlit mid-green
+bodyLight:        '#7AA8C0'   silver-blue leaf highlight
+sprout:           '#3A6B5A'   cool blue-green
+bloom:            '#C8D8F0'   moonlit silver-white
+backgroundGarden: '#080C1F'   near-black navy
+backgroundGround: '#0D1A0D'   deep dark earth
+```
+
+**Background elements:** sky gradient (`#0A0E2A`→`#111836`), moon top-right with glow rings, ~30 stars (8–10 twinkling with staggered opacity animation), dark hill bezier silhouette, 4 drifting fireflies (`#C8FF80`), dark grass blades along ground.
+
+**Plant types:** flower, mushroom, cactus — same three types as Grove, night-themed visuals.
+- Flower: silver-white moonlit petals, bloom shimmer animation at stage 4
+- Mushroom: bioluminescent glowing spots (staggered pulse), light pool on ground at stage 4
+- Cactus: moonlit spine highlights, white night-blooming flowers at stage 4
+- All elders: breathing scale animation (~3s cycle) + scene-appropriate glow
+
+**Animations:** all via Reanimated (`useSharedValue`, `withRepeat`, `withTiming`). Stars staggered — never all pulse in sync. Fireflies each have independent drift timing.
+
+### To add a new plant type (any scene)
+1. Create `src/scenes/{scene}/plants/{type}/Stage1–4.tsx` + `elders/Elder{Type}.tsx`
+2. Import into that scene's `PlantNode.tsx`, add to `STAGE_REGISTRY` + `ELDER_REGISTRY`
 3. Add to `PLANT_TYPES[]` in `plantTypes.ts`
 
 ### To add a new scene
-1. Copy `grove/` folder, rename, update colors/music/background, add to registry with `locked: true`
+1. Copy `grove/` folder, rename, update colors/music/background/plants, add to `scenes/index.ts` with `locked: true`
+2. Add entry to the Registered scenes table above
 
 ---
 
@@ -354,7 +393,10 @@ STORAGE_KEYS = {
 - ✅ Phase 1 — Core loop (onboarding, garden static, log win, storage)
 - ✅ Phase 2 — Garden comes alive (animations, bloom, plant tap/delete)
 - ✅ Phase 3 — History & stats (history screen, seasons, streak recalc)
-- 🔲 Phase 4 — Polish & monetization (visualizations, IAP, notifications, scene switcher, App Store)
+- 🔲 Phase 4a — Scene selector (ScenePickerSheet, useActiveScene, PreviewCanvas per scene)
+- 🔲 Phase 4b — Notifications (expo-notifications wiring, 10 rotating copy, grace skip logic)
+- 🔲 Phase 4c — IAP ($1.99 visualizations unlock, restore purchases, expo-in-app-purchases)
+- 🔲 Phase 4d — App Store submission (icon, screenshots, metadata)
 
 ---
 
@@ -375,10 +417,13 @@ STORAGE_KEYS = {
 | Scenes vs Theme | Plant sprites use SceneColors; UI uses Theme |
 | Audio | Respects silent mode; SFX tap=immediate, grow=+400ms |
 | Default scene | Grove (free forever) |
+| Scene switching UI | Pill button bottom-left → ScenePickerSheet (bottom sheet, horizontal preview cards) |
+| Scene picker preview | Each scene exports optional `PreviewCanvas` (background only, no plants) — live in card |
+| Active scene persistence | `qw_active_scene` via `useActiveScene` hook |
+| Night Grove | `locked: true`, moonlit silver-blue palette, stars/moon/fireflies background |
 | Onboarding | 6 steps — user plants first win before leaving |
 
 ---
-
 
 ## Open Questions
 - App icon, font choice, App Store keywords

@@ -15,10 +15,11 @@ import { useStreak } from '@/hooks/useStreak'
 import { useSeasons, isSeasonComplete } from '@/hooks/useSeasons'
 import { Plant } from '@/hooks/usePlants'
 import { PlantType } from '@/scenes/grove/plants/plantTypes'
-import { DEFAULT_SCENE } from '@/scenes'
 import LogWinSheet from '@/components/LogWinSheet'
 import PlantPopup from '@/components/PlantPopup'
 import SeasonRecapOverlay from '@/components/SeasonRecapOverlay'
+import ScenePickerSheet from '@/components/ScenePickerSheet'
+import { useActiveScene } from '@/hooks/useActiveScene'
 
 interface Props {
   onNavigateHistory: () => void
@@ -29,7 +30,12 @@ interface Props {
 
 const MAX_DAILY_WINS = 3
 
-const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings, onDevReset }: Props) => {
+const GardenScreen = ({
+  onNavigateHistory,
+  onNavigateArchive,
+  onNavigateSettings,
+  onDevReset,
+}: Props) => {
   const { theme } = useTheme()
   const { width, height } = useWindowDimensions()
   const insets = useSafeAreaInsets()
@@ -38,11 +44,12 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
   const { plants, growPlant, shrinkPlant, transitionSeason } = usePlants()
   const { streak, updateStreak, recalculateStreak, graceAvailable } = useStreak()
   const { seasons, getCurrentSeason, completeSeason } = useSeasons()
+  const { activeScene: scene, setActiveScene } = useActiveScene()
 
   const [sheetVisible, setSheetVisible] = useState(false)
+  const [pickerVisible, setPickerVisible] = useState(false)
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
   const [streakResetMsg, setStreakResetMsg] = useState(false)
-
   const [recapVisible, setRecapVisible] = useState(false)
   const [recapSeasonNumber, setRecapSeasonNumber] = useState(0)
   const [recapTotalWins, setRecapTotalWins] = useState(0)
@@ -60,27 +67,18 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
   const completedCount = seasons.filter(s => s.completedAt !== null).length
   const reachedDailyLimit = todayCount >= MAX_DAILY_WINS
 
-  const scene = DEFAULT_SCENE
   const sceneColors = scene.getColors(theme)
   const SceneCanvas = scene.Canvas
 
   const seasonProgress = useMemo(() => {
     if (!currentSeason) return 0
-
-    const seasonPlants = plants.filter(
-      p => p.seasonId === currentSeason.id && !p.isElder,
-    )
-
+    const seasonPlants = plants.filter(p => p.seasonId === currentSeason.id && !p.isElder)
     const grownPoints = seasonPlants.reduce((sum, plant) => sum + plant.stage, 0)
-
-    // 10 plants * stage 4 = 40 total points
-    const maxPoints = 40
-    return Math.max(0, Math.min(1, grownPoints / maxPoints))
+    return Math.max(0, Math.min(1, grownPoints / 40))
   }, [plants, currentSeason])
 
   const handleAddWin = async (text: string, emoji: string) => {
     if (!currentSeason) return
-
     const win = await addWin(text, emoji, currentSeason.id)
     const updatedPlants = await growPlant(win.id, currentSeason.id)
     await updateStreak()
@@ -89,7 +87,6 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
     if (isSeasonComplete(updatedPlants)) {
       const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
       const totalWinsSnapshot = wins.length + 1
-
       const uniqueRewardOptions = Array.from(
         new Set(
           updatedPlants
@@ -97,10 +94,8 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
             .map(p => p.plantType),
         ),
       )
-
       pendingUpdatedPlants.current = updatedPlants
       pendingTotalWins.current = totalWinsSnapshot
-
       setRecapSeasonNumber(nextSeasonNumber - 1)
       setRecapTotalWins(totalWinsSnapshot)
       setRewardOptions(uniqueRewardOptions)
@@ -111,14 +106,11 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
 
   const handleRecapReady = async () => {
     setRecapVisible(false)
-
     const nextSeason = await completeSeason(
       pendingTotalWins.current,
       pendingUpdatedPlants.current,
     )
-
     await transitionSeason(nextSeason.id, selectedRewardType)
-
     setRewardOptions([])
     setSelectedRewardType(null)
   }
@@ -128,360 +120,221 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
   const handleDeleteWin = async (winId: string) => {
     await deleteWin(winId)
     const updatedPlants = await shrinkPlant(winId)
-
     const remainingWins = wins.filter(w => w.id !== winId)
     const { wasReset } = await recalculateStreak(remainingWins.map(w => w.createdAt))
-
     if (wasReset) {
       setStreakResetMsg(true)
       setTimeout(() => setStreakResetMsg(false), 4000)
     }
-
     if (selectedPlant) {
       const stillExists = updatedPlants.find(p => p.id === selectedPlant.id)
       setSelectedPlant(stillExists ?? null)
     }
   }
 
-  const getCtaLabel = (): string => {
-    if (reachedDailyLimit) return `You've planted ${MAX_DAILY_WINS} today`
-    if (todayCount === 0) return 'Plant your first win today'
-    if (todayCount === 1) return 'Plant another win'
-    return 'One more win left today'
-  }
-
-  const getSubcopy = (): string => {
-    if (todayCount === 0) return 'Tiny progress still counts.'
-    if (reachedDailyLimit) return 'Come back tomorrow and keep the streak alive.'
-    return `${MAX_DAILY_WINS - todayCount} daily slot${MAX_DAILY_WINS - todayCount === 1 ? '' : 's'} remaining`
-  }
+  const ctaLabel = reachedDailyLimit
+    ? "That's 3 for today 🌿"
+    : todayCount === 0
+      ? 'Plant a win'
+      : todayCount === 1
+        ? 'Plant another win'
+        : 'One more slot left'
 
   return (
-    <View style={[styles.screen, { backgroundColor: theme.background.primary }]}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Ambient background glows */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambientGlowTop,
-          { backgroundColor: 'rgba(91, 176, 86, 0.10)' },
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambientGlowBottom,
-          { backgroundColor: 'rgba(34, 197, 94, 0.08)' },
-        ]}
+      {/* ── Garden fills the entire screen ── */}
+      <SceneCanvas
+        width={width}
+        height={height}
+        colors={sceneColors}
+        theme={theme}
+        plants={plants}
+        wins={wins}
+        onPlantTap={handlePlantTap}
       />
 
-      {/* Top area */}
+      {/* ── Hero strip — frosted, floats over garden ── */}
       <View
         style={[
-          styles.topShell,
+          styles.hero,
           {
-            paddingTop: insets.top + 2,
-            paddingHorizontal: 14,
+            paddingTop: insets.top + 6,
+            backgroundColor: 'rgba(10,18,8,0.72)',
+            borderBottomColor: 'rgba(255,255,255,0.06)',
           },
         ]}
       >
-        <View style={styles.topActionsRow}>
-          <View style={styles.topActionsSpacer} />
-
-          <View style={styles.headerActions}>
+        {/* Row 1: slogan left, icons right */}
+        <View style={styles.heroRow}>
+          <Text style={[styles.slogan, { color: 'rgba(255,255,255,0.38)' }]}>
+            the small stuff adds up
+          </Text>
+          <View style={styles.iconRow}>
             {completedCount > 0 && (
               <TouchableOpacity
-                style={[
-                  styles.iconBtn,
-                  {
-                    backgroundColor: 'rgba(255,255,255,0.04)',
-                    borderColor: 'rgba(255,255,255,0.08)',
-                  },
-                ]}
+                style={styles.iconBtn}
                 onPress={onNavigateArchive}
                 accessibilityLabel="View past seasons"
               >
-                <Text style={[styles.iconText, { color: theme.text.secondary }]}>🌿</Text>
+                <Text style={styles.iconGlyph}>🌿</Text>
               </TouchableOpacity>
             )}
-
             <TouchableOpacity
-              style={[
-                styles.iconBtn,
-                {
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  borderColor: 'rgba(255,255,255,0.08)',
-                },
-              ]}
+              style={styles.iconBtn}
               onPress={onNavigateHistory}
               accessibilityLabel="View history"
             >
-              <Text style={[styles.iconText, { color: theme.text.secondary }]}>☰</Text>
+              <Text style={styles.iconGlyph}>☰</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              style={[
-                styles.iconBtn,
-                {
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  borderColor: 'rgba(255,255,255,0.08)',
-                },
-              ]}
+              style={styles.iconBtn}
               onPress={onNavigateSettings}
               accessibilityLabel="Settings"
             >
-              <Text style={[styles.iconText, { color: theme.text.secondary }]}>⚙️</Text>
+              <Text style={styles.iconGlyph}>⚙️</Text>
             </TouchableOpacity>
-
             {__DEV__ && onDevReset && (
-              <TouchableOpacity
-                style={[
-                  styles.iconBtn,
-                  {
-                    backgroundColor: 'rgba(255,255,255,0.04)',
-                    borderColor: 'rgba(255,255,255,0.08)',
-                  },
-                ]}
-                onPress={onDevReset}
-              >
-                <Text style={[styles.iconText, { color: theme.ui.danger }]}>↺</Text>
+              <TouchableOpacity style={styles.iconBtn} onPress={onDevReset}>
+                <Text style={[styles.iconGlyph, { color: theme.ui.danger }]}>↺</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
 
-        <View
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: 'rgba(255,255,255,0.04)',
-              borderColor: 'rgba(255,255,255,0.08)',
-            },
-          ]}
-        >
-          <View style={styles.heroTopMeta}>
-            <View style={styles.heroMetaPill}>
-              <Text style={[styles.heroMetaValue, { color: theme.stats.streakText }]}>
-                {streak.current}
-              </Text>
-              <Text style={[styles.heroMetaLabel, { color: theme.text.secondary }]}>
-                day streak
-              </Text>
-              {graceAvailable && streak.current > 0 && (
-                <View style={styles.heroGraceRow}>
-                  <View
-                    style={[
-                      styles.graceDot,
-                      { backgroundColor: theme.brand.light },
-                    ]}
-                  />
-                  <Text style={[styles.heroGraceText, { color: theme.text.tertiary }]}>
-                    grace ready
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.heroMetaPill}>
-              <Text style={[styles.heroMetaValue, { color: theme.stats.winsText }]}>
-                {totalWins}
-              </Text>
-              <Text style={[styles.heroMetaLabel, { color: theme.text.secondary }]}>
-                total wins
-              </Text>
-            </View>
-
-            <View style={styles.heroMetaPill}>
-              <Text style={[styles.heroMetaValue, { color: theme.text.primary }]}>
-                {currentSeason?.number ?? 1}
-              </Text>
-              <Text style={[styles.heroMetaLabel, { color: theme.text.secondary }]}>
-                season
-              </Text>
-            </View>
+        {/* Row 2: stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statBlock}>
+            <Text style={[styles.statNum, { color: theme.stats.streakText }]}>
+              {streak.current}
+            </Text>
+            <Text style={[styles.statLbl, { color: 'rgba(255,255,255,0.4)' }]}>
+              {streak.current === 1 ? 'day streak' : 'day streak'}
+            </Text>
+            {graceAvailable && streak.current > 0 && (
+              <View style={[styles.graceDot, { backgroundColor: theme.brand.light }]} />
+            )}
           </View>
 
-          <View style={styles.heroCopy}>
-            <Text style={[styles.heroEyebrow, { color: theme.text.tertiary }]}>
-              TODAY
+          <View style={[styles.statDivider, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
+
+          <View style={styles.statBlock}>
+            <Text style={[styles.statNum, { color: theme.stats.winsText }]}>
+              {totalWins}
             </Text>
-            <Text style={[styles.heroTitle, { color: theme.text.primary }]}>
-              Your grove is growing quietly.
-            </Text>
-            <Text style={[styles.heroSubtitle, { color: theme.text.secondary }]}>
-              Log a small win, grow the garden, and build momentum without pressure.
+            <Text style={[styles.statLbl, { color: 'rgba(255,255,255,0.4)' }]}>
+              total wins
             </Text>
           </View>
 
-          <View style={styles.progressWrap}>
-            <View style={styles.progressRow}>
-              <Text style={[styles.progressLabel, { color: theme.text.secondary }]}>
-                Season progress
-              </Text>
-              <Text style={[styles.progressValue, { color: theme.text.primary }]}>
-                {Math.round(seasonProgress * 100)}%
-              </Text>
-            </View>
+          <View style={[styles.statDivider, { backgroundColor: 'rgba(255,255,255,0.08)' }]} />
 
-            <View
-              style={[
-                styles.progressTrack,
-                { backgroundColor: 'rgba(255,255,255,0.08)' },
-              ]}
-            >
+          <View style={styles.statBlock}>
+            <Text style={[styles.statNum, { color: 'rgba(255,255,255,0.7)' }]}>
+              S{currentSeason?.number ?? 1}
+            </Text>
+            <Text style={[styles.statLbl, { color: 'rgba(255,255,255,0.4)' }]}>
+              season
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Streak reset banner — floats below hero strip ── */}
+      {streakResetMsg && (
+        <View style={[styles.resetBanner, { top: insets.top + 80 }]}>
+          <Text style={styles.resetText}>
+            You missed a day. Your streak resets, but your garden stays.
+          </Text>
+        </View>
+      )}
+
+      {/* ── Floating bottom bar ── */}
+      <View
+        style={[
+          styles.bottomBar,
+          { paddingBottom: Math.max(insets.bottom, 12) },
+        ]}
+        pointerEvents="box-none"
+      >
+        {/* Scene pill — left */}
+        <View style={styles.bottomRow} pointerEvents="box-none">
+          <TouchableOpacity
+            style={[styles.scenePill, { backgroundColor: 'rgba(0,0,0,0.36)' }]}
+            onPress={() => setPickerVisible(true)}
+            activeOpacity={0.8}
+            accessibilityLabel="Switch scene"
+          >
+            <Text style={styles.scenePillIcon}>🌿</Text>
+            <Text style={[styles.scenePillText, { color: 'rgba(255,255,255,0.7)' }]}>
+              {scene.name}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Win dots — center-right */}
+          <View style={styles.dotsWrap} pointerEvents="none">
+            {Array.from({ length: MAX_DAILY_WINS }).map((_, i) => (
               <View
+                key={i}
                 style={[
-                  styles.progressFill,
+                  styles.dot,
                   {
-                    width: `${Math.max(8, seasonProgress * 100)}%`,
-                    backgroundColor: theme.brand.mid,
+                    backgroundColor: i < todayCount
+                      ? theme.brand.light
+                      : 'rgba(255,255,255,0.2)',
                   },
                 ]}
               />
-            </View>
-          </View>
-        </View>
-
-        {streakResetMsg && (
-          <View
-            style={[
-              styles.resetBanner,
-              {
-                backgroundColor: theme.background.secondary,
-                borderColor: theme.ui.border,
-              },
-            ]}
-          >
-            <Text style={[styles.resetText, { color: theme.text.secondary }]}>
-              You missed a day. Your streak resets, but your garden stays.
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Garden area */}
-      <View style={styles.sceneSection}>
-        <View
-          style={[
-            styles.sceneFrame,
-            {
-              borderColor: 'rgba(255,255,255,0.08)',
-              backgroundColor: 'rgba(255,255,255,0.03)',
-            },
-          ]}
-        >
-          <View style={styles.sceneClip}>
-             <SceneCanvas
-              width={width - 20}
-              height={Math.max(470, height * 0.66)}
-              colors={sceneColors}
-              theme={theme}
-              plants={plants}
-              wins={wins}
-              onPlantTap={handlePlantTap}
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* Bottom CTA */}
-      <View
-        style={[
-          styles.bottomShell,
-          {
-            paddingBottom: Math.max(insets.bottom, 16),
-            paddingHorizontal: 16,
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.ctaCard,
-            {
-              backgroundColor: 'rgba(255,255,255,0.05)',
-              borderColor: 'rgba(255,255,255,0.08)',
-            },
-          ]}
-        >
-          <View style={styles.ctaTopRow}>
-            <View style={styles.ctaCopy}>
-              <Text style={[styles.ctaTitle, { color: theme.text.primary }]}>
-                {getCtaLabel()}
-              </Text>
-              <Text style={[styles.ctaSubtitle, { color: theme.text.secondary }]}>
-                {getSubcopy()}
-              </Text>
-            </View>
-
-            <View style={styles.dotsRow}>
-              {Array.from({ length: MAX_DAILY_WINS }).map((_, i) => {
-                const filled = i < todayCount
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.progressDot,
-                      {
-                        backgroundColor: filled
-                          ? theme.brand.mid
-                          : 'rgba(255,255,255,0.18)',
-                        borderColor: filled
-                          ? theme.brand.mid
-                          : 'rgba(255,255,255,0.12)',
-                      },
-                    ]}
-                  />
-                )
-              })}
-            </View>
+            ))}
           </View>
 
+          {/* CTA button — right */}
           <TouchableOpacity
             style={[
-              styles.ctaButton,
+              styles.ctaBtn,
               {
                 backgroundColor: reachedDailyLimit
-                  ? theme.background.tertiary
+                  ? 'rgba(0,0,0,0.36)'
                   : theme.brand.mid,
               },
             ]}
             onPress={() => !reachedDailyLimit && setSheetVisible(true)}
-            activeOpacity={reachedDailyLimit ? 1 : 0.88}
+            activeOpacity={reachedDailyLimit ? 1 : 0.85}
             accessibilityLabel="Log a win"
           >
             <Text
               style={[
-                styles.ctaButtonText,
+                styles.ctaBtnText,
                 {
                   color: reachedDailyLimit
-                    ? theme.text.tertiary
+                    ? 'rgba(255,255,255,0.35)'
                     : theme.text.inverse,
                 },
               ]}
             >
-              {reachedDailyLimit ? 'Daily limit reached' : 'Log a quiet win'}
+              {ctaLabel}
             </Text>
-
             {!reachedDailyLimit && (
-              <View
-                style={[
-                  styles.ctaPlusWrap,
-                  { backgroundColor: 'rgba(255,255,255,0.16)' },
-                ]}
-              >
-                <Text style={[styles.ctaPlus, { color: theme.text.inverse }]}>+</Text>
-              </View>
+              <Text style={[styles.ctaPlus, { color: theme.text.inverse }]}>+</Text>
             )}
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* ── Sheets & overlays ── */}
       <LogWinSheet
         visible={sheetVisible}
         todayWinCount={todayCount}
         onSubmit={handleAddWin}
         onClose={() => setSheetVisible(false)}
+      />
+
+      <ScenePickerSheet
+        visible={pickerVisible}
+        activeSceneId={scene.id}
+        onSelect={setActiveScene}
+        onClose={() => setPickerVisible(false)}
       />
 
       <PlantPopup
@@ -510,264 +363,155 @@ const GardenScreen = ({ onNavigateHistory, onNavigateArchive, onNavigateSettings
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: '#000',
   },
 
-  ambientGlowTop: {
+  // ── Hero strip ──
+  hero: {
     position: 'absolute',
-    top: -80,
-    left: -40,
-    right: -40,
-    height: 220,
-    borderRadius: 140,
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
   },
-  ambientGlowBottom: {
-    position: 'absolute',
-    bottom: 40,
-    left: 30,
-    right: 30,
-    height: 180,
-    borderRadius: 120,
-  },
-
-  topShell: {
-    zIndex: 3,
-  },
-
-   topActionsRow: {
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  topActionsSpacer: {
+  slogan: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.6,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
+  },
+  statBlock: {
     flex: 1,
-  },
-
-  headerActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems: 'baseline',
+    gap: 5,
   },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  statDivider: {
+    width: 1,
+    height: 16,
+    marginHorizontal: 12,
   },
-  iconText: {
-    fontSize: 16,
-    fontWeight: '600',
+  statNum: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
-
-  heroCard: {
-    borderWidth: 1,
-    borderRadius: 22,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 6,
-  },
-
-  heroTopMeta: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 6,
-    marginBottom: 10,
-  },
-  heroMetaPill: {
-    flex: 1,
-    minHeight: 50,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-    justifyContent: 'center',
-  },
-  heroMetaValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    marginBottom: 1,
-  },
-  heroMetaLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  heroGraceRow: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroGraceText: {
-    fontSize: 9,
+  statLbl: {
+    fontSize: 11,
     fontWeight: '500',
   },
   graceDot: {
     width: 5,
     height: 5,
     borderRadius: 3,
-    marginRight: 4,
+    marginLeft: 2,
+    marginBottom: 1,
   },
-
-  heroCopy: {
-    marginBottom: 10,
-  },
-  heroEyebrow: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-  heroTitle: {
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    marginBottom: 6,
-  },
-  heroSubtitle: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
-  },
-
-  progressWrap: {
-    gap: 6,
-  },
-  progressRow: {
+  iconRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 4,
   },
-  progressLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  progressValue: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-  },
-
-  resetBanner: {
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 6,
-  },
-  resetText: {
-    fontSize: 11,
-    lineHeight: 15,
-    textAlign: 'center',
-  },
-
-  sceneSection: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingTop: 0,
-    paddingBottom: 8,
-  },
-  sceneFrame: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 24,
-    padding: 6,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.24,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  sceneClip: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-
-  bottomShell: {
-    zIndex: 3,
-    paddingTop: 0,
-  },
-  ctaCard: {
-    borderWidth: 1,
-    borderRadius: 20,
-    padding: 12,
-    marginBottom: 2,
-  },
-  ctaTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 10,
-  },
-  ctaCopy: {
-    flex: 1,
-    paddingRight: 6,
-  },
-  ctaTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  ctaSubtitle: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '500',
-  },
-
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingTop: 3,
-  },
-  progressDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-
-  ctaButton: {
-    minHeight: 52,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  ctaButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.1,
-  },
-  ctaPlusWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
+  iconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  iconGlyph: {
+    fontSize: 14,
+  },
+
+  // ── Reset banner ──
+  resetBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    zIndex: 10,
+  },
+  resetText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+
+  // ── Bottom bar ──
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    zIndex: 10,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scenePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  scenePillIcon: {
+    fontSize: 13,
+  },
+  scenePillText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  dotsWrap: {
+    flexDirection: 'row',
+    gap: 5,
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  ctaBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   ctaPlus: {
-    fontSize: 18,
-    fontWeight: '400',
+    fontSize: 16,
+    fontWeight: '300',
     marginTop: -1,
   },
 })
