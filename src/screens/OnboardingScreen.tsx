@@ -7,13 +7,13 @@ import {
   StyleSheet,
   useWindowDimensions,
   ScrollView,
-  SafeAreaView,
   StatusBar,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
   Platform,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useTheme } from '@/theme'
 import { Theme } from '@/theme/theme'
@@ -155,7 +155,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   if (step === 1) {
     return (
-      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]}>
+      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
 
         <View style={s.heroWrap}>
@@ -265,7 +265,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   if (step === 2) {
     return (
-      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]}>
+      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
 
         <View style={s.stepShell}>
@@ -345,7 +345,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   if (step === 3) {
     return (
-      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]}>
+      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
 
         <View style={s.stepShell}>
@@ -469,7 +469,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
     ]
 
     return (
-      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]}>
+      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
 
         <View style={s.stepShell}>
@@ -611,7 +611,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
 
   if (step === 5) {
     return (
-      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]}>
+      <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
         <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
 
         <KeyboardAvoidingView
@@ -761,7 +761,7 @@ const OnboardingScreen = ({ onComplete }: Props) => {
   }
 
   return (
-    <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]}>
+    <SafeAreaView style={[s.screen, { backgroundColor: theme.background.primary }]} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
 
       <View style={s.stepShell}>

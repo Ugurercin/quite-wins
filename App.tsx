@@ -2,19 +2,19 @@ import React, { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ThemeProvider } from '@/theme'
 import { STORAGE_KEYS } from '@/storage/keys'
 import OnboardingScreen from '@/screens/OnboardingScreen'
 import GardenScreen from '@/screens/GardenScreen'
 import HistoryScreen from '@/screens/HistoryScreen'
 import SeasonArchiveScreen from '@/screens/SeasonArchiveScreen'
+import SettingsScreen from '@/screens/SettingsScreen'
 
-type Screen = 'loading' | 'onboarding' | 'garden' | 'history' | 'archive'
+type Screen = 'loading' | 'onboarding' | 'garden' | 'history' | 'archive' | 'settings'
 
 const AppNavigator = () => {
   const [screen, setScreen] = useState<Screen>('loading')
-  // Increment to force GardenScreen remount after returning from History or Archive,
-  // ensuring it reads fresh data from AsyncStorage instead of showing stale state.
   const [gardenKey, setGardenKey] = useState(0)
 
   useEffect(() => {
@@ -49,11 +49,16 @@ const AppNavigator = () => {
     return <SeasonArchiveScreen onBack={handleBackToGarden} />
   }
 
+  if (screen === 'settings') {
+    return <SettingsScreen onBack={handleBackToGarden} />
+  }
+
   return (
     <GardenScreen
       key={gardenKey}
       onNavigateHistory={() => setScreen('history')}
       onNavigateArchive={() => setScreen('archive')}
+      onNavigateSettings={() => setScreen('settings')}
       onDevReset={__DEV__ ? handleDevReset : undefined}
     />
   )
@@ -62,9 +67,11 @@ const AppNavigator = () => {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <AppNavigator />
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AppNavigator />
+        </ThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   )
 }

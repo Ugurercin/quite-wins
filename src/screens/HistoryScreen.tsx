@@ -5,10 +5,10 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
 } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/theme'
 import { Theme } from '@/theme/theme'
 import { useHistory } from '@/hooks/useHistory'
@@ -22,6 +22,7 @@ interface Props {
 
 const HistoryScreen = ({ onBack }: Props) => {
   const { theme } = useTheme()
+  const insets = useSafeAreaInsets()
   const scrollRef = useRef<ScrollView>(null)
   const { groups, loading, deleteWin, totalWins } = useHistory()
   const { shrinkPlant } = usePlants()
@@ -29,13 +30,17 @@ const HistoryScreen = ({ onBack }: Props) => {
   const [streakResetMsg, setStreakResetMsg] = useState(false)
   const s = makeStyles(theme)
 
+  const currentStreak =
+  typeof streak === 'number'
+    ? streak
+    : typeof streak?.current === 'number'
+      ? streak.current
+      : 0
+
   const handleDeleteWin = async (winId: string) => {
     await deleteWin(winId)
     await shrinkPlant(winId)
 
-    // Recompute streak from remaining wins (excluding the deleted one)
-    // We read all remaining wins via the groups that will update after deleteWin
-    // For immediate recalculation, use the current groups minus the deleted win
     const remainingDates = groups
       .flatMap(g => g.wins)
       .filter(w => w.id !== winId)
@@ -58,20 +63,87 @@ const HistoryScreen = ({ onBack }: Props) => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[s.container, { backgroundColor: theme.background.primary }]}>
         <StatusBar barStyle="light-content" backgroundColor={theme.background.primary} />
-        <SafeAreaView style={{ flex: 1 }}>
 
-          {/* Header */}
-          <View style={[s.header, { borderBottomColor: theme.ui.border }]}>
-            <TouchableOpacity style={s.backBtn} onPress={onBack} accessibilityLabel="Back to garden">
-              <Text style={[s.backArrow, { color: theme.text.secondary }]}>←</Text>
-            </TouchableOpacity>
-            <Text style={[s.title, { color: theme.text.primary }]}>History</Text>
-            <View style={s.backBtn} />
+        <SafeAreaView
+          style={s.safeArea}
+          edges={['top', 'left', 'right']}
+        >
+          {/* Header / Hero */}
+          <View style={[s.topShell, { borderBottomColor: theme.ui.border }]}>
+            <View style={s.headerRow}>
+              <TouchableOpacity
+                style={[
+                  s.backBtn,
+                  {
+                    backgroundColor: theme.background.secondary,
+                    borderColor: theme.ui.border,
+                  },
+                ]}
+                onPress={onBack}
+                activeOpacity={0.85}
+                accessibilityLabel="Back to garden"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={[s.backArrow, { color: theme.text.primary }]}>←</Text>
+              </TouchableOpacity>
+
+              <View style={s.headerCenter}>
+                <Text style={[s.title, { color: theme.text.primary }]}>History</Text>
+                <Text style={[s.subtitle, { color: theme.text.tertiary }]}>
+                  Every small win you logged
+                </Text>
+              </View>
+
+              <View style={s.headerRightSpacer} />
+            </View>
+
+            <View
+              style={[
+                s.heroCard,
+                {
+                  backgroundColor: theme.background.secondary,
+                  borderColor: theme.ui.border,
+                },
+              ]}
+            >
+              <View style={s.heroStat}>
+                <Text style={[s.heroValue, { color: theme.text.primary }]}>
+                  {totalWins}
+                </Text>
+                <Text style={[s.heroLabel, { color: theme.text.tertiary }]}>
+                  Total wins
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  s.heroDivider,
+                  { backgroundColor: theme.ui.border },
+                ]}
+              />
+
+              <View style={s.heroStat}>
+                <Text style={[s.heroValue, { color: theme.text.primary }]}>
+                  {currentStreak}
+                </Text>
+                <Text style={[s.heroLabel, { color: theme.text.tertiary }]}>
+                  Current streak
+                </Text>
+              </View>
+            </View>
           </View>
 
-          {/* Streak reset gentle message */}
+          {/* Streak reset banner */}
           {streakResetMsg && (
-            <View style={[s.resetBanner, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
+            <View
+              style={[
+                s.resetBanner,
+                {
+                  backgroundColor: theme.background.secondary,
+                  borderColor: theme.ui.border,
+                },
+              ]}
+            >
               <Text style={[s.resetMsg, { color: theme.text.secondary }]}>
                 You missed a day. It happens. Your streak resets but your garden stays.
               </Text>
@@ -81,21 +153,35 @@ const HistoryScreen = ({ onBack }: Props) => {
           {/* Content */}
           {groups.length === 0 ? (
             <View style={s.empty}>
-              <Text style={[s.emptyText, { color: theme.text.tertiary }]}>
-                No wins logged yet.{'\n'}Go plant your first one.
-              </Text>
+              <View
+                style={[
+                  s.emptyCard,
+                  {
+                    backgroundColor: theme.background.secondary,
+                    borderColor: theme.ui.border,
+                  },
+                ]}
+              >
+                <Text style={[s.emptyTitle, { color: theme.text.primary }]}>
+                  No wins yet
+                </Text>
+                <Text style={[s.emptyText, { color: theme.text.tertiary }]}>
+                  Your logged wins will appear here.{'\n'}Go plant your first one.
+                </Text>
+              </View>
             </View>
           ) : (
             <ScrollView
               ref={scrollRef}
-              style={{ flex: 1 }}
+              style={s.scroll}
+              contentContainerStyle={[s.scrollContent, { paddingBottom: Math.max(insets.bottom, 28) }]}
               bounces={false}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
               {groups.map(group => (
-                <View key={group.dateStr}>
-                  <View style={[s.dayHeader, { borderBottomColor: theme.ui.border }]}>
+                <View key={group.dateStr} style={s.groupBlock}>
+                  <View style={s.dayHeader}>
                     <Text style={[s.dayLabel, { color: theme.text.secondary }]}>
                       {group.label}
                     </Text>
@@ -103,19 +189,29 @@ const HistoryScreen = ({ onBack }: Props) => {
                       {group.wins.length} {group.wins.length === 1 ? 'win' : 'wins'}
                     </Text>
                   </View>
-                  {group.wins.map(win => (
-                    <SwipeableWinRow
-                      key={win.id}
-                      win={win}
-                      theme={theme}
-                      scrollRef={scrollRef}
-                      onDeleteWin={handleDeleteWin}
-                    />
-                  ))}
+
+                  <View
+                    style={[
+                      s.groupCard,
+                      {
+                        backgroundColor: theme.background.secondary,
+                        borderColor: theme.ui.border,
+                      },
+                    ]}
+                  >
+                    {group.wins.map(win => (
+                      <SwipeableWinRow
+                        key={win.id}
+                        win={win}
+                        theme={theme}
+                        scrollRef={scrollRef}
+                        onDeleteWin={handleDeleteWin}
+                      />
+                    ))}
+                  </View>
                 </View>
               ))}
 
-              {/* Footer */}
               <View style={s.footer}>
                 <Text style={[s.footerText, { color: theme.text.tertiary }]}>
                   {totalWins} total {totalWins === 1 ? 'win' : 'wins'} logged
@@ -123,7 +219,6 @@ const HistoryScreen = ({ onBack }: Props) => {
               </View>
             </ScrollView>
           )}
-
         </SafeAreaView>
       </View>
     </GestureHandlerRootView>
@@ -132,41 +227,194 @@ const HistoryScreen = ({ onBack }: Props) => {
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    container: { flex: 1 },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 8,
-      paddingVertical: 12,
+    container: {
+      flex: 1,
+    },
+
+    safeArea: {
+      flex: 1,
+    },
+
+    topShell: {
+      paddingTop: 12,
+      paddingHorizontal: 16,
+      paddingBottom: 18,
       borderBottomWidth: 1,
     },
-    backBtn: { width: 48, alignItems: 'center' },
-    backArrow: { fontSize: 24, lineHeight: 28 },
-    title: { fontSize: 17, fontWeight: '600' },
+
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 56,
+    },
+
+    backBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+
+    backArrow: {
+      fontSize: 22,
+      lineHeight: 24,
+      fontWeight: '600',
+      marginTop: -1,
+    },
+
+    headerCenter: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+
+    headerRightSpacer: {
+      width: 48,
+      height: 48,
+      marginLeft: 12,
+    },
+
+    title: {
+      fontSize: 24,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+
+    subtitle: {
+      marginTop: 4,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+
+    heroCard: {
+      marginTop: 16,
+      minHeight: 88,
+      borderRadius: 18,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-evenly',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+
+    heroStat: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    heroValue: {
+      fontSize: 24,
+      fontWeight: '700',
+    },
+
+    heroLabel: {
+      marginTop: 4,
+      fontSize: 12,
+    },
+
+    heroDivider: {
+      width: 1,
+      alignSelf: 'stretch',
+      marginHorizontal: 8,
+      opacity: 0.8,
+    },
+
     resetBanner: {
       marginHorizontal: 16,
-      marginTop: 12,
-      padding: 14,
-      borderRadius: 10,
+      marginTop: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      borderRadius: 14,
       borderWidth: 1,
     },
-    resetMsg: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
+
+    resetMsg: {
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'center',
+    },
+
+    scroll: {
+      flex: 1,
+    },
+
+    scrollContent: {
+      paddingTop: 10,
+      paddingBottom: 28,
+    },
+
+    groupBlock: {
+      marginBottom: 8,
+    },
+
     dayHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'baseline',
+      alignItems: 'center',
       paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 8,
-      borderBottomWidth: 1,
+      paddingTop: 16,
+      paddingBottom: 10,
     },
-    dayLabel: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6 },
-    dayCount: { fontSize: 12 },
-    empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    emptyText: { fontSize: 15, textAlign: 'center', lineHeight: 24 },
-    footer: { paddingVertical: 32, alignItems: 'center' },
-    footerText: { fontSize: 12 },
+
+    dayLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+
+    dayCount: {
+      fontSize: 12,
+    },
+
+    groupCard: {
+      marginHorizontal: 16,
+      borderRadius: 18,
+      borderWidth: 1,
+      overflow: 'hidden',
+    },
+
+    empty: {
+      flex: 1,
+      paddingHorizontal: 20,
+      justifyContent: 'center',
+      paddingBottom: 80,
+    },
+
+    emptyCard: {
+      width: '100%',
+      borderRadius: 20,
+      borderWidth: 1,
+      paddingHorizontal: 24,
+      paddingVertical: 30,
+      alignItems: 'center',
+    },
+
+    emptyTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: 10,
+    },
+
+    emptyText: {
+      fontSize: 15,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+
+    footer: {
+      paddingTop: 18,
+      paddingBottom: 8,
+      alignItems: 'center',
+    },
+
+    footerText: {
+      fontSize: 12,
+    },
   })
 
 export default HistoryScreen

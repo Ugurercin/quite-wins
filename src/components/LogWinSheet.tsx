@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/theme'
 import { Theme } from '@/theme/theme'
 import { useAudio } from '@/audio/useAudio'
@@ -26,6 +27,7 @@ interface Props {
 
 const LogWinSheet = ({ visible, todayWinCount, onSubmit, onClose }: Props) => {
   const { theme } = useTheme()
+  const insets = useSafeAreaInsets()
   const { playSFX } = useAudio()
   const [text, setText] = useState('')
   const [emoji, setEmoji] = useState('✨')
@@ -62,7 +64,7 @@ const LogWinSheet = ({ visible, todayWinCount, onSubmit, onClose }: Props) => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={s.sheetWrapper}
       >
-        <View style={[s.sheet, { backgroundColor: theme.background.secondary }]}>
+        <View style={[s.sheet, { backgroundColor: theme.background.secondary, paddingBottom: Math.max(insets.bottom, 16) + 24 }]}>
           {/* Handle bar */}
           <View style={[s.handle, { backgroundColor: theme.ui.borderStrong }]} />
 
@@ -168,7 +170,6 @@ const makeStyles = (theme: Theme) =>
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       paddingHorizontal: 24,
-      paddingBottom: 40,
       paddingTop: 12,
     },
     handle: {

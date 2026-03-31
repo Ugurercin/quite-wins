@@ -112,23 +112,20 @@ export const usePlants = () => {
     [plants],
   )
 
-  // Atomic season transition.
-  // Keeps all existing elders from previous seasons, removes regular plants,
-  // then adds new elders for the season that just completed.
+  // Season transition:
+  // - keep all existing elder trees
+  // - remove all regular plants from the finished season
+  // - add exactly ONE new elder if the user selected one
   const transitionSeason = useCallback(
-    async (seasonId: string, plantTypes: PlantType[]): Promise<Plant[]> => {
-      // Load from storage to get the true current state
+    async (seasonId: string, chosenElderType: PlantType | null): Promise<Plant[]> => {
       const current = await loadPlants()
-
-      // Keep elders from all previous seasons — they are permanent
       const existingElders = current.filter(p => p.isElder)
 
-      // Start working array from existing elders so slot calculation is correct
       let working = [...existingElders]
 
-      // Add one new elder per completed plant type
-      for (let i = 0; i < plantTypes.length; i++) {
+      if (chosenElderType) {
         const slot = nextElderSlot(working)
+
         const elder: Plant = {
           id: generateId(),
           slotIndex: slot,
@@ -136,8 +133,9 @@ export const usePlants = () => {
           winIds: [],
           isElder: true,
           seasonId,
-          plantType: plantTypes[i],
+          plantType: chosenElderType,
         }
+
         working = [...working, elder]
       }
 

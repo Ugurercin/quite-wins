@@ -1,152 +1,462 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated'
-import { Theme } from '@/theme/theme'
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+} from 'react-native'
+import { PlantType } from '@/scenes/grove/plants/plantTypes'
 
 interface Props {
   seasonNumber: number
   totalWins: number
-  theme: Theme
+  theme: any
+  rewardOptions: PlantType[]
+  selectedRewardType: PlantType | null
+  onSelectReward: (plantType: PlantType) => void
   onReady: () => void
 }
 
-
-
-const POETIC_LINES = [
-  'Every tree here started as a small thing you noticed.',
-  'Your garden remembers what your memory forgets.',
-  'Seasons end. The roots stay.',
-  'You showed up. That\'s the whole story.',
-  'Each one was real.',
-  'The garden is full. So are you.',
-  'A chapter closes. The forest grows.',
-]
-
-let lastPoetryIndex = -1
-const pickPoeticLine = (): string => {
-  let idx: number
-  do { idx = Math.floor(Math.random() * POETIC_LINES.length) }
-  while (idx === lastPoetryIndex)
-  lastPoetryIndex = idx
-  return POETIC_LINES[idx]
+const formatPlantType = (value: PlantType): string => {
+  return String(value)
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, s => s.toUpperCase())
 }
 
-const SeasonRecapOverlay = ({ seasonNumber, totalWins, theme, onReady }: Props) => {
-  const poeticLine = useRef(pickPoeticLine()).current
-  const [buttonVisible, setButtonVisible] = useState(false)
-  const hasCalledReady = useRef(false)
+const getPlantEmoji = (value: PlantType): string => {
+  const key = String(value).toLowerCase()
 
-  const opacity = useSharedValue(0)
-  const translateY = useSharedValue(24)
+  if (key.includes('pine')) return '🌲'
+  if (key.includes('oak')) return '🌳'
+  if (key.includes('maple')) return '🍁'
+  if (key.includes('flower')) return '🌸'
+  if (key.includes('blossom')) return '🌸'
+  if (key.includes('rose')) return '🌹'
+  if (key.includes('mushroom')) return '🍄'
+  if (key.includes('fern')) return '🌿'
+  if (key.includes('cactus')) return '🌵'
+  if (key.includes('bamboo')) return '🎋'
+  if (key.includes('palm')) return '🌴'
+  if (key.includes('sprout')) return '🌱'
 
-  useEffect(() => {
-    // Fade in + slide up over 800ms
-    opacity.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.quad) })
-    translateY.value = withTiming(0, { duration: 800, easing: Easing.out(Easing.cubic) })
-
-    // Button appears after 1500ms — gives user time to read
-    const t = setTimeout(() => setButtonVisible(true), 1500)
-    return () => clearTimeout(t)
-  }, [])
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }))
-
-const handleReady = () => {
-  if (hasCalledReady.current) return  // prevent double-fire
-  hasCalledReady.current = true
-  
-  opacity.value = withTiming(0, { duration: 600, easing: Easing.in(Easing.quad) })
-  setTimeout(onReady, 600)
+  return '🌿'
 }
 
-  const s = makeStyles(theme)
+const PlantRewardPreview = ({
+  plantType,
+  selected,
+  theme,
+}: {
+  plantType: PlantType
+  selected: boolean
+  theme: any
+}) => {
+  const label = formatPlantType(plantType)
+  const emoji = useMemo(() => getPlantEmoji(plantType), [plantType])
 
   return (
-    <View style={s.overlay}>
-      <Animated.View style={[s.content, contentStyle]}>
-        <Text style={[s.badge, { color: theme.brand.light }]}>
-          🌱 Season {seasonNumber} Complete
-        </Text>
-        <Text style={[s.winsCount, { color: theme.text.primary }]}>
-          You grew {totalWins} wins.
-        </Text>
-        <Text style={[s.subtitle, { color: theme.text.secondary }]}>
-          Not bad for one chapter.
-        </Text>
-        <Text style={[s.poeticLine, { color: theme.text.secondary }]}>
-          {poeticLine}
-        </Text>
-        {buttonVisible && (
-          <TouchableOpacity
-            style={[s.button, { backgroundColor: theme.brand.mid }]}
-            onPress={handleReady}
-            activeOpacity={0.8}
-          >
-            <Text style={[s.buttonText, { color: theme.text.inverse }]}>
-              Ready for Season {seasonNumber + 1} →
-            </Text>
-          </TouchableOpacity>
-        )}
-      </Animated.View>
+    <View
+      style={[
+        styles.previewCard,
+        {
+          backgroundColor: selected ? 'rgba(255,255,255,0.12)' : theme.background.primary,
+          borderColor: selected ? 'rgba(255,255,255,0.2)' : theme.ui.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.previewArt,
+          {
+            backgroundColor: selected
+              ? 'rgba(255,255,255,0.14)'
+              : theme.background.secondary,
+            borderColor: selected
+              ? 'rgba(255,255,255,0.16)'
+              : theme.ui.border,
+          },
+        ]}
+      >
+        <Text style={styles.previewEmoji}>{emoji}</Text>
+        <View
+          style={[
+            styles.previewGround,
+            {
+              backgroundColor: selected
+                ? 'rgba(255,255,255,0.18)'
+                : theme.brand.light,
+            },
+          ]}
+        />
+      </View>
+
+      <Text
+        style={[
+          styles.previewLabel,
+          { color: selected ? theme.text.inverse : theme.text.primary },
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+
+      <Text
+        style={[
+          styles.previewSubtext,
+          {
+            color: selected
+              ? 'rgba(255,255,255,0.82)'
+              : theme.text.tertiary,
+          },
+        ]}
+      >
+        Elder reward
+      </Text>
     </View>
   )
 }
 
-const makeStyles = (theme: Theme) =>
-  StyleSheet.create({
-    overlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(0,0,0,0.85)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 100,
-    },
-    content: {
-      paddingHorizontal: 40,
-      alignItems: 'center',
-      gap: 16,
-    },
-    badge: {
-      fontSize: 16,
-      fontWeight: '600',
-      letterSpacing: 0.4,
-      marginBottom: 4,
-    },
-    winsCount: {
-      fontSize: 32,
-      fontWeight: '700',
-      textAlign: 'center',
-    },
-    subtitle: {
-      fontSize: 16,
-      textAlign: 'center',
-    },
-    poeticLine: {
-      fontSize: 14,
-      fontStyle: 'italic',
-      textAlign: 'center',
-      lineHeight: 22,
-      marginTop: 4,
-      marginBottom: 8,
-    },
-    button: {
-      marginTop: 8,
-      paddingHorizontal: 28,
-      paddingVertical: 14,
-      borderRadius: 14,
-    },
-    buttonText: {
-      fontSize: 16,
-      fontWeight: '600',
-    },
-  })
+const SeasonRecapOverlay = ({
+  seasonNumber,
+  totalWins,
+  theme,
+  rewardOptions,
+  selectedRewardType,
+  onSelectReward,
+  onReady,
+}: Props) => {
+  const [step, setStep] = useState<'recap' | 'reward'>('recap')
+
+  useEffect(() => {
+    if (rewardOptions.length === 1 && !selectedRewardType) {
+      onSelectReward(rewardOptions[0])
+    }
+  }, [rewardOptions, selectedRewardType, onSelectReward])
+
+  const canContinueFromReward =
+    rewardOptions.length === 0 || selectedRewardType !== null
+
+  return (
+    <Modal visible transparent animationType="fade">
+      <View style={styles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} />
+
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.background.primary,
+              borderColor: theme.ui.border,
+            },
+          ]}
+        >
+          {step === 'recap' ? (
+            <>
+              <Text style={[styles.eyebrow, { color: theme.brand.light }]}>
+                Season Complete
+              </Text>
+
+              <Text style={[styles.title, { color: theme.text.primary }]}>
+                You finished Season {seasonNumber}
+              </Text>
+
+              <Text style={[styles.body, { color: theme.text.secondary }]}>
+                {totalWins} total wins and a whole season of quiet progress.
+              </Text>
+
+              <Text style={[styles.body, { color: theme.text.secondary }]}>
+                Small things really do add up. You kept showing up, and your garden proves it.
+              </Text>
+
+              <Text style={[styles.highlight, { color: theme.text.primary }]}>
+                Now choose one tree to preserve as your Elder Tree.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: theme.brand.mid }]}
+                onPress={() => setStep('reward')}
+              >
+                <Text style={[styles.primaryBtnText, { color: theme.text.inverse }]}>
+                  Choose elder tree
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.eyebrow, { color: theme.brand.light }]}>
+                Season Reward
+              </Text>
+
+              <Text style={[styles.title, { color: theme.text.primary }]}>
+                Pick your Elder Tree
+              </Text>
+
+              <Text style={[styles.body, { color: theme.text.secondary }]}>
+                You earn one elder each season. Choose the tree you want to carry forward.
+              </Text>
+
+              <ScrollView
+                style={styles.optionsWrap}
+                contentContainerStyle={styles.optionsContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {rewardOptions.map(option => {
+                  const selected = selectedRewardType === option
+
+                  return (
+                    <TouchableOpacity
+                      key={String(option)}
+                      style={[
+                        styles.optionCard,
+                        {
+                          backgroundColor: selected
+                            ? theme.brand.mid
+                            : theme.background.secondary,
+                          borderColor: selected
+                            ? theme.brand.mid
+                            : theme.ui.border,
+                        },
+                      ]}
+                      onPress={() => onSelectReward(option)}
+                      activeOpacity={0.85}
+                    >
+                      <PlantRewardPreview
+                        plantType={option}
+                        selected={selected}
+                        theme={theme}
+                      />
+
+                      <View
+                        style={[
+                          styles.radioOuter,
+                          {
+                            borderColor: selected
+                              ? theme.text.inverse
+                              : theme.ui.border,
+                          },
+                        ]}
+                      >
+                        {selected && (
+                          <View
+                            style={[
+                              styles.radioInner,
+                              { backgroundColor: theme.text.inverse },
+                            ]}
+                          />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  )
+                })}
+              </ScrollView>
+
+              <View style={styles.actionsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.secondaryBtn,
+                    {
+                      backgroundColor: theme.background.secondary,
+                      borderColor: theme.ui.border,
+                    },
+                  ]}
+                  onPress={() => setStep('recap')}
+                >
+                  <Text
+                    style={[
+                      styles.secondaryBtnText,
+                      { color: theme.text.primary },
+                    ]}
+                  >
+                    Back
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.primaryBtnInline,
+                    {
+                      backgroundColor: canContinueFromReward
+                        ? theme.brand.mid
+                        : theme.background.tertiary,
+                    },
+                  ]}
+                  disabled={!canContinueFromReward}
+                  onPress={onReady}
+                >
+                  <Text
+                    style={[
+                      styles.primaryBtnText,
+                      {
+                        color: canContinueFromReward
+                          ? theme.text.inverse
+                          : theme.text.tertiary,
+                      },
+                    ]}
+                  >
+                    Start next season
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 18,
+  },
+  eyebrow: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  body: {
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  highlight: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    fontWeight: '700',
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  optionsWrap: {
+    maxHeight: 320,
+    marginTop: 14,
+    marginBottom: 18,
+  },
+  optionsContent: {
+    gap: 12,
+  },
+  optionCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  previewCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    marginRight: 12,
+  },
+  previewArt: {
+    height: 92,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  previewEmoji: {
+    fontSize: 38,
+    marginBottom: 10,
+  },
+  previewGround: {
+    position: 'absolute',
+    bottom: 12,
+    width: 48,
+    height: 8,
+    borderRadius: 999,
+    opacity: 0.9,
+  },
+  previewLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  previewSubtext: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  primaryBtn: {
+    minHeight: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    marginTop: 8,
+  },
+  primaryBtnInline: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  secondaryBtn: {
+    minHeight: 54,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  secondaryBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+})
 
 export default SeasonRecapOverlay
