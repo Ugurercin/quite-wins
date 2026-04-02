@@ -8,6 +8,9 @@ const night: Scene = {
   id: 'night',
   name: 'Night Grove',
   locked: false,
+  bundleId: 'night_space_bundle',
+  // TODO: Replace with real screenshot before App Store submission
+  thumbnail: require('../../../assets/thumbnails/night.png'),
   music: nightMusic,
   getColors: getNightColors,
   Canvas: GardenCanvas,

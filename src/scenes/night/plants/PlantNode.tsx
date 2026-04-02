@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { useAudio } from '@/audio/useAudio'
 import { Group, vec } from '@shopify/react-native-skia'
 import {
   Easing,
@@ -64,6 +65,14 @@ const PlantNode = ({ x, y, stage, colors, accentColor, plantType, isElder, isExi
   const scaleVal   = useSharedValue(isExiting ? 1 : 0.2)
   const opacityVal = useSharedValue(isExiting ? 1 : 0)
   const prevStageRef = useRef(stage)
+  const { playSFX } = useAudio()
+
+  useEffect(() => {
+    if (stage === 4 && !isElder) {
+      const t = setTimeout(() => playSFX('bloom'), 300)
+      return () => clearTimeout(t)
+    }
+  }, [stage])
 
   useEffect(() => {
     if (isExiting) {
@@ -84,6 +93,11 @@ const PlantNode = ({ x, y, stage, colors, accentColor, plantType, isElder, isExi
       scaleVal.value = withSequence(
         withTiming(0.6, { duration: 280, easing: Easing.out(Easing.cubic) }),
         withTiming(1.0, { duration: 380, easing: Easing.out(Easing.back(1.6)) }),
+      )
+    } else if (stage > prevStageRef.current && !isElder) {
+      scaleVal.value = withSequence(
+        withTiming(1.15, { duration: 200, easing: Easing.out(Easing.ease) }),
+        withTiming(1.0,  { duration: 200, easing: Easing.inOut(Easing.ease) }),
       )
     }
     prevStageRef.current = stage

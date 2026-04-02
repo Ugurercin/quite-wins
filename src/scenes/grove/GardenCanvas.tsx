@@ -12,10 +12,15 @@ import PlantNode from './plants/PlantNode'
 const HIT_W = 64
 const HIT_H = 90
 
-const GardenCanvas = ({ width, height, colors, theme, plants, wins, onPlantTap }: CanvasProps) => {
+const GardenCanvas = ({ width, height, colors, theme, plants, wins, activeSceneId, paletteBackgroundColors, onPlantTap }: CanvasProps) => {
   const prevPlantsRef = useRef<Map<string, Plant>>(new Map())
   const isFirstRender = useRef(true)
   const [departingPlants, setDepartingPlants] = useState<Plant[]>([])
+
+  // Show all non-elders + only elders belonging to this scene
+  const visiblePlants = plants.filter(p =>
+    !p.isElder || (p.sceneId ?? 'grove') === activeSceneId
+  )
 
   useEffect(() => {
     const currMap = new Map(plants.map(p => [p.id, p]))
@@ -50,9 +55,9 @@ const GardenCanvas = ({ width, height, colors, theme, plants, wins, onPlantTap }
   return (
     <View style={{ width, height }}>
       <Canvas style={{ width, height }}>
-        <GardenBackground width={width} height={height} colors={colors} />
+        <GardenBackground width={width} height={height} colors={colors} paletteBackgroundColors={paletteBackgroundColors} />
 
-        {plants.map(plant => {
+        {visiblePlants.map(plant => {
           if (plant.stage === 0) return null
           const slot = GARDEN_POSITIONS[plant.slotIndex] ?? GARDEN_POSITIONS[0]
           const { x, y } = resolvePosition(slot, width, height)
@@ -89,7 +94,7 @@ const GardenCanvas = ({ width, height, colors, theme, plants, wins, onPlantTap }
         })}
       </Canvas>
 
-      {plants.map(plant => {
+      {visiblePlants.map(plant => {
         if (plant.stage === 0 || !onPlantTap) return null
         const slot = GARDEN_POSITIONS[plant.slotIndex] ?? GARDEN_POSITIONS[0]
         const { x, y } = resolvePosition(slot, width, height)

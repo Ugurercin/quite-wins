@@ -32,9 +32,10 @@ type ThemeMode = 'system' | 'light' | 'dark'
 
 interface Props {
   onBack: () => void
+  onOpenShop: () => void
 }
 
-const SettingsScreen = ({ onBack }: Props) => {
+const SettingsScreen = ({ onBack, onOpenShop }: Props) => {
   const { theme, mode, setMode } = useTheme()
   const { stopMusic } = useAudio()
   const insets = useSafeAreaInsets()
@@ -176,6 +177,18 @@ const SettingsScreen = ({ onBack }: Props) => {
           </View>
         </View>
 
+        {/* ── Worlds ── */}
+        <SectionLabel text={COPY.settings.sections.worlds} theme={theme} s={s} />
+        <View style={[s.card, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
+          <TouchableOpacity style={s.row} onPress={onOpenShop} activeOpacity={0.8}>
+            <View style={s.shopRowLeft}>
+              <Text style={[s.rowLabel, { color: theme.text.primary }]}>{COPY.settings.rows.shop}</Text>
+              <Text style={[s.shopRowSub, { color: theme.text.tertiary }]}>{COPY.settings.rows.shopSub}</Text>
+            </View>
+            <Text style={{ color: theme.text.tertiary, fontSize: 16 }}>→</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* ── Connect ── */}
         <SectionLabel text={COPY.settings.sections.connect} theme={theme} s={s} />
         <View style={[s.card, { backgroundColor: theme.background.secondary, borderColor: theme.ui.border }]}>
@@ -298,6 +311,8 @@ const makeStyles = (theme: Theme) =>
     segment: { paddingHorizontal: 10, paddingVertical: 6 },
     segmentText: { fontSize: 13, fontWeight: '600' },
     version: { textAlign: 'center', fontSize: 12, marginTop: 28 },
+    shopRowLeft: { flex: 1 },
+    shopRowSub: { fontSize: 12, marginTop: 2 },
   })
 
 export default SettingsScreen

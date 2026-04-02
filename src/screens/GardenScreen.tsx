@@ -1,5 +1,6 @@
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AppState,
   View,
   Text,
   TouchableOpacity,
@@ -7,6 +8,12 @@ import {
   useWindowDimensions,
   StatusBar,
 } from 'react-native'
+import Animated, {
+  useSharedValue,
+  withSequence,
+  withTiming,
+  useAnimatedStyle,
+} from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/theme'
 import { useWins } from '@/hooks/useWins'
@@ -19,11 +26,19 @@ import LogWinSheet from '@/components/LogWinSheet'
 import PlantPopup from '@/components/PlantPopup'
 import SeasonRecapOverlay from '@/components/SeasonRecapOverlay'
 import ScenePickerSheet from '@/components/ScenePickerSheet'
+import BundlePaywallSheet from '@/components/BundlePaywallSheet'
+import PalettePaywallSheet from '@/components/PalettePaywallSheet'
+import ScenePaywallSheet from '@/components/ScenePaywallSheet'
 import { useActiveScene } from '@/hooks/useActiveScene'
+import { useActivePalette } from '@/hooks/useActivePalette'
+import { getPaletteById } from '@/scenes/grove/palettes'
+import { Scene } from '@/scenes/types'
 import { COPY } from '@/constants/copy'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { STORAGE_KEYS } from '@/storage/keys'
 import { onWinLogged } from '@/notifications/notifications'
+import { useAudio } from '@/audio/useAudio'
+import { MusicContext } from '@/audio/tracks'
 
 interface Props {
   onNavigateHistory: () => void
@@ -32,7 +47,7 @@ interface Props {
   onDevReset?: () => void
 }
 
-const MAX_DAILY_WINS = 3
+const MAX_DAILY_WINS = 4
 
 const GardenScreen = ({
   onNavigateHistory,
@@ -49,16 +64,60 @@ const GardenScreen = ({
   const { streak, updateStreak, recalculateStreak, graceAvailable } = useStreak()
   const { seasons, getCurrentSeason, completeSeason } = useSeasons()
   const { activeScene: scene, setActiveScene } = useActiveScene()
+  const { activePaletteId, setActivePalette } = useActivePalette()
+  const { playMusic, crossfadeTo, playSFX, stopMusic } = useAudio()
+
+  // Palette applies only to Grove; other scenes ignore it entirely
+  const activePalette = scene.id === 'grove' ? getPaletteById(activePaletteId) : null
 
   const [sheetVisible, setSheetVisible] = useState(false)
   const [pickerVisible, setPickerVisible] = useState(false)
+  const [scenePaywallVisible, setScenePaywallVisible] = useState(false)
+  const [bundlePaywallVisible, setBundlePaywallVisible] = useState(false)
+  const [paywallTriggerScene, setPaywallTriggerScene] = useState<Scene | null>(null)
+  const [palettePaywallVisible, setPalettePaywallVisible] = useState(false)
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null)
   const [streakResetMsg, setStreakResetMsg] = useState(false)
   const [recapVisible, setRecapVisible] = useState(false)
   const [recapSeasonNumber, setRecapSeasonNumber] = useState(0)
   const [recapTotalWins, setRecapTotalWins] = useState(0)
-  const [rewardOptions, setRewardOptions] = useState<PlantType[]>([])
-  const [selectedRewardType, setSelectedRewardType] = useState<PlantType | null>(null)
+  const [pendingElderType, setPendingElderType] = useState<PlantType | null>(null)
+
+  const [planted, setPlanted] = useState(false)
+  const plantedOpacity = useSharedValue(0)
+  const plantedOverlayStyle = useAnimatedStyle(() => ({ opacity: plantedOpacity.value }))
+
+  useEffect(() => {
+    if (planted) {
+      plantedOpacity.value = withSequence(
+        withTiming(0.15, { duration: 200 }),
+        withTiming(0, { duration: 400 }),
+      )
+    }
+  }, [planted])
+
+  // Crossfade to scene music when active scene changes
+  useEffect(() => {
+    const context = scene.id as MusicContext
+    if (['grove', 'night', 'space'].includes(context)) {
+      crossfadeTo(context)
+    }
+  }, [scene.id])
+
+  // Pause music when app backgrounds, resume when foregrounded
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background' || state === 'inactive') {
+        stopMusic()
+      } else if (state === 'active') {
+        const context = scene.id as MusicContext
+        if (['grove', 'night', 'space'].includes(context)) {
+          crossfadeTo(context)
+        }
+      }
+    })
+    return () => sub.remove()
+  }, [scene.id])
 
   const pendingUpdatedPlants = useRef<Plant[]>([])
   const pendingTotalWins = useRef(0)
@@ -71,7 +130,7 @@ const GardenScreen = ({
   const completedCount = seasons.filter(s => s.completedAt !== null).length
   const reachedDailyLimit = todayCount >= MAX_DAILY_WINS
 
-  const sceneColors = scene.getColors(theme)
+  const sceneColors = activePalette ? activePalette.getColors(theme) : scene.getColors(theme)
   const SceneCanvas = scene.Canvas
 
   const seasonProgress = useMemo(() => {
@@ -84,41 +143,53 @@ const GardenScreen = ({
   const handleAddWin = async (text: string, emoji: string) => {
     if (!currentSeason) return
     const win = await addWin(text, emoji, currentSeason.id)
-    const updatedPlants = await growPlant(win.id, currentSeason.id)
-    await updateStreak()
     setSheetVisible(false)
-    const notifTime = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_TIME) ?? '20:00'
-    await onWinLogged(todayCount + 1, notifTime)
+    setTimeout(async () => {
+      const updatedPlants = await growPlant(win.id, currentSeason.id)
+      await updateStreak()
+      setPlanted(true)
+      setTimeout(() => setPlanted(false), 600)
+      const notifTime = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_TIME) ?? '20:00'
+      const streakRaw = await AsyncStorage.getItem(STORAGE_KEYS.STREAK)
+      const streakState = streakRaw ? JSON.parse(streakRaw) : null
+      const isGrace = streakState?.graceUsedThisWeek ?? false
+      await onWinLogged(todayCount + 1, notifTime, isGrace)
 
-    if (isSeasonComplete(updatedPlants)) {
-      const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
-      const totalWinsSnapshot = wins.length + 1
-      const uniqueRewardOptions = Array.from(
-        new Set(
-          updatedPlants
-            .filter(p => !p.isElder && p.stage === 4 && p.seasonId === currentSeason.id)
-            .map(p => p.plantType),
-        ),
-      )
-      pendingUpdatedPlants.current = updatedPlants
-      pendingTotalWins.current = totalWinsSnapshot
-      setRecapSeasonNumber(nextSeasonNumber - 1)
-      setRecapTotalWins(totalWinsSnapshot)
-      setRewardOptions(uniqueRewardOptions)
-      setSelectedRewardType(uniqueRewardOptions[0] ?? null)
-      setRecapVisible(true)
-    }
+      if (isSeasonComplete(updatedPlants)) {
+        await playSFX('season_complete')
+        const nextSeasonNumber = (getCurrentSeason()?.number ?? 0) + 1
+        const totalWinsSnapshot = wins.length + 1
+
+        // Auto-assign elder: most common non-elder plant type this season
+        const seasonPlants = updatedPlants.filter(p => !p.isElder && p.seasonId === currentSeason.id)
+        const typeCounts: Record<string, number> = {}
+        for (const p of seasonPlants) {
+          typeCounts[p.plantType] = (typeCounts[p.plantType] ?? 0) + 1
+        }
+        const autoElderType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] as PlantType ?? null
+
+        pendingUpdatedPlants.current = updatedPlants
+        pendingTotalWins.current = totalWinsSnapshot
+        setRecapSeasonNumber(nextSeasonNumber - 1)
+        setRecapTotalWins(totalWinsSnapshot)
+        setPendingElderType(autoElderType)
+        setRecapVisible(true)
+      }
+    }, 500)
   }
 
   const handleRecapReady = async () => {
     setRecapVisible(false)
-    const nextSeason = await completeSeason(
-      pendingTotalWins.current,
-      pendingUpdatedPlants.current,
-    )
-    await transitionSeason(nextSeason.id, selectedRewardType)
-    setRewardOptions([])
-    setSelectedRewardType(null)
+    const nextSeason = await completeSeason(pendingTotalWins.current, pendingUpdatedPlants.current)
+    await transitionSeason(nextSeason.id, pendingElderType, scene.id)
+    await playSFX('elder_appears')
+    setPendingElderType(null)
+  }
+
+  const handleLockedSceneTap = (scene: Scene) => {
+    setPickerVisible(false)
+    setPaywallTriggerScene(scene)
+    setScenePaywallVisible(true)
   }
 
   const handlePlantTap = (plant: Plant) => setSelectedPlant(plant)
@@ -126,6 +197,7 @@ const GardenScreen = ({
   const handleDeleteWin = async (winId: string) => {
     await deleteWin(winId)
     const updatedPlants = await shrinkPlant(winId)
+    playSFX('win_deleted')
     const remainingWins = wins.filter(w => w.id !== winId)
     const { wasReset } = await recalculateStreak(remainingWins.map(w => w.createdAt))
     if (wasReset) {
@@ -139,11 +211,13 @@ const GardenScreen = ({
   }
 
   const ctaLabel = reachedDailyLimit
-    ? COPY.garden.cta.limitReached
-    : todayCount === 0
-      ? COPY.garden.cta.plant
-      : todayCount === 1
-        ? COPY.garden.cta.plantAnother
+  ? COPY.garden.cta.limitReached
+  : todayCount === 0
+    ? COPY.garden.cta.plant
+    : todayCount === 1
+      ? COPY.garden.cta.plantAnother
+      : todayCount === 2
+        ? COPY.garden.cta.almostThere
         : COPY.garden.cta.oneLeft
 
   return (
@@ -158,7 +232,19 @@ const GardenScreen = ({
         theme={theme}
         plants={plants}
         wins={wins}
+        activeSceneId={scene.id}
+        paletteBackgroundColors={activePalette?.getBackgroundColors()}
         onPlantTap={handlePlantTap}
+      />
+
+      {/* ── Plant flash overlay ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: '#fff', zIndex: 5 },
+          plantedOverlayStyle,
+        ]}
       />
 
       {/* ── Hero strip — frosted, floats over garden ── */}
@@ -339,8 +425,45 @@ const GardenScreen = ({
       <ScenePickerSheet
         visible={pickerVisible}
         activeSceneId={scene.id}
+        activePaletteId={activePaletteId}
         onSelect={setActiveScene}
+        onPaletteSelect={(id) => {
+          setActivePalette(id)
+          setPickerVisible(false)
+        }}
         onClose={() => setPickerVisible(false)}
+        onLockedSceneTap={handleLockedSceneTap}
+        onLockedPaletteTap={() => {
+          setPickerVisible(false)
+          setPalettePaywallVisible(true)
+        }}
+      />
+
+      <ScenePaywallSheet
+        visible={scenePaywallVisible}
+        scene={paywallTriggerScene}
+        onClose={() => setScenePaywallVisible(false)}
+        onPurchase={() => setScenePaywallVisible(false)}
+        onPurchaseBundle={() => {
+          setScenePaywallVisible(false)
+          setBundlePaywallVisible(true)
+        }}
+        onRestore={() => setScenePaywallVisible(false)}
+      />
+
+      <BundlePaywallSheet
+        visible={bundlePaywallVisible}
+        triggerScene={paywallTriggerScene}
+        onClose={() => setBundlePaywallVisible(false)}
+        onPurchase={() => setBundlePaywallVisible(false)}
+        onRestore={() => setBundlePaywallVisible(false)}
+      />
+
+      <PalettePaywallSheet
+        visible={palettePaywallVisible}
+        onClose={() => setPalettePaywallVisible(false)}
+        onPurchase={() => setPalettePaywallVisible(false)}
+        onRestore={() => setPalettePaywallVisible(false)}
       />
 
       <PlantPopup
@@ -356,9 +479,6 @@ const GardenScreen = ({
           seasonNumber={recapSeasonNumber}
           totalWins={recapTotalWins}
           theme={theme}
-          rewardOptions={rewardOptions}
-          selectedRewardType={selectedRewardType}
-          onSelectReward={setSelectedRewardType}
           onReady={handleRecapReady}
         />
       )}

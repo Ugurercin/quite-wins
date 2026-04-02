@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { View } from 'react-native'
+import * as Notifications from 'expo-notifications'
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,   // keep for older SDK compat
+    shouldShowBanner: true,  // required in newer versions
+    shouldShowList: true,    // required in newer versions
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -10,8 +21,9 @@ import GardenScreen from '@/screens/GardenScreen'
 import HistoryScreen from '@/screens/HistoryScreen'
 import SeasonArchiveScreen from '@/screens/SeasonArchiveScreen'
 import SettingsScreen from '@/screens/SettingsScreen'
+import ShopScreen from '@/screens/ShopScreen'
 
-type Screen = 'loading' | 'onboarding' | 'garden' | 'history' | 'archive' | 'settings'
+type Screen = 'loading' | 'onboarding' | 'garden' | 'history' | 'archive' | 'settings' | 'shop'
 
 const AppNavigator = () => {
   const [screen, setScreen] = useState<Screen>('loading')
@@ -49,8 +61,22 @@ const AppNavigator = () => {
     return <SeasonArchiveScreen onBack={handleBackToGarden} />
   }
 
+  if (screen === 'shop') {
+    return (
+      <ShopScreen
+        onBack={() => setScreen('settings')}
+        onPurchaseNight={() => {}}
+        onPurchaseSpace={() => {}}
+        onPurchaseNightSpace={() => setScreen('settings')}
+        onPurchasePalettes={() => setScreen('settings')}
+        onPurchaseEverything={() => setScreen('settings')}
+        onRestore={() => setScreen('settings')}
+      />
+    )
+  }
+
   if (screen === 'settings') {
-    return <SettingsScreen onBack={handleBackToGarden} />
+    return <SettingsScreen onBack={handleBackToGarden} onOpenShop={() => setScreen('shop')} />
   }
 
   return (

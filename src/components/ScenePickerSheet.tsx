@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   Modal,
   View,
@@ -10,33 +10,49 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/theme'
+import { useAudio } from '@/audio/useAudio'
 import { Theme } from '@/theme/theme'
 import { Scene } from '@/scenes/types'
 import { SCENES } from '@/scenes'
+import { GROVE_PALETTES } from '@/scenes/grove/palettes'
 
 const CARD_W = 140
 const CARD_H = 100
+const DOT_SIZE = 12
 
 interface Props {
   visible: boolean
   activeSceneId: string
-  onSelect: (id: string) => void
+  activePaletteId: string
+  onSelect: (sceneId: string) => void
+  onPaletteSelect: (paletteId: string) => void
+  onLockedSceneTap: (scene: Scene) => void
+  onLockedPaletteTap: () => void
   onClose: () => void
 }
 
-const ScenePickerSheet = ({ visible, activeSceneId, onSelect, onClose }: Props) => {
+const ScenePickerSheet = ({
+  visible,
+  activeSceneId,
+  activePaletteId,
+  onSelect,
+  onPaletteSelect,
+  onLockedSceneTap,
+  onLockedPaletteTap,
+  onClose,
+}: Props) => {
   const { theme } = useTheme()
   const insets = useSafeAreaInsets()
-  const [lockedNotice, setLockedNotice] = useState<string | null>(null)
   const s = makeStyles(theme)
+  const { playSFX } = useAudio()
 
   const handleCardPress = (scene: Scene) => {
     if (scene.locked) {
-      setLockedNotice(scene.id)
-      setTimeout(() => setLockedNotice(null), 2000)
+      onLockedSceneTap(scene)
       return
     }
     onSelect(scene.id)
+    playSFX('scene_switch')
     onClose()
   }
 
@@ -60,7 +76,7 @@ const ScenePickerSheet = ({ visible, activeSceneId, onSelect, onClose }: Props) 
             const colors = scene.getColors(theme)
             const isActive = scene.id === activeSceneId
             const isLocked = scene.locked
-            const showNotice = lockedNotice === scene.id
+            const isGrove = scene.id === 'grove'
 
             return (
               <View key={scene.id} style={s.cardWrap}>
@@ -100,8 +116,38 @@ const ScenePickerSheet = ({ visible, activeSceneId, onSelect, onClose }: Props) 
 
                 <Text style={[s.cardName, { color: theme.text.secondary }]}>{scene.name}</Text>
 
-                {showNotice && (
-                  <Text style={[s.comingSoon, { color: theme.text.tertiary }]}>Coming soon</Text>
+                {/* Palette dot row — Grove only */}
+                {isGrove && (
+                  <View style={s.dotRow}>
+                    {/* Default dot */}
+                    <TouchableOpacity
+                      onPress={() => onPaletteSelect('default')}
+                      activeOpacity={0.8}
+                      style={[
+                        s.dot,
+                        { backgroundColor: theme.brand.mid },
+                        activePaletteId === 'default' && s.dotActive,
+                      ]}
+                    />
+
+                    {/* Palette dots */}
+                    {GROVE_PALETTES.map(palette => {
+                      const isActivePalette = activePaletteId === palette.id
+                      return (
+                        <TouchableOpacity
+                          key={palette.id}
+                          onPress={() => palette.locked ? onLockedPaletteTap() : onPaletteSelect(palette.id)}
+                          activeOpacity={0.8}
+                          style={[
+                            s.dot,
+                            { backgroundColor: palette.dotColor },
+                            isActivePalette && s.dotActive,
+                            palette.locked && s.dotLocked,
+                          ]}
+                        />
+                      )
+                    })}
+                  </View>
                 )}
               </View>
             )
@@ -189,9 +235,22 @@ const makeStyles = (theme: Theme) =>
       fontSize: 13,
       fontWeight: '600',
     },
-    comingSoon: {
-      fontSize: 11,
-      fontWeight: '500',
+    dotRow: {
+      flexDirection: 'row',
+      gap: 6,
+      alignItems: 'center',
+    },
+    dot: {
+      width: DOT_SIZE,
+      height: DOT_SIZE,
+      borderRadius: DOT_SIZE / 2,
+    },
+    dotActive: {
+      borderWidth: 2,
+      borderColor: 'rgba(255,255,255,0.9)',
+    },
+    dotLocked: {
+      opacity: 0.5,
     },
   })
 

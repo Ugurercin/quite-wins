@@ -17,14 +17,32 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/visuals/first.png",
+        "foregroundImage": "./assets/visuals/AppIcon.png",
         "backgroundColor": "#0B1220"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.ugure.quietwins"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1C2B1A",
+          "sounds": []
+        }
+      ],
+      "expo-audio"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b77f552e-56f6-4d29-8092-bf52babb0414"
+      }
+    },
+    "owner": "ugure"
   }
 }

@@ -16,11 +16,13 @@ import {
   withTiming,
 } from 'react-native-reanimated'
 import { SceneColors } from '@/scenes/types'
+import { GroveBackgroundColors } from './palettes/types'
 
 interface Props {
   width: number
   height: number
   colors: SceneColors
+  paletteBackgroundColors?: GroveBackgroundColors  // if present, overrides default sky/ground colors
 }
 
 // ──────────────────────────────────────────────
@@ -215,26 +217,29 @@ function Bird({ t, w, baseY, speed, startX }: { t: any; w: number; baseY: number
 // Note: Grove background uses its own fixed environment colors (sky, grass, stones).
 // These are intentionally NOT from SceneColors — SceneColors is for plants only.
 // Future scenes replace this entire file with their own environment visuals.
-const GardenBackground = ({ width: w, height: h, colors }: Props) => {
+const GardenBackground = ({ width: w, height: h, colors, paletteBackgroundColors: palBg }: Props) => {
   const horizonY = h * 0.47
   const midY = h * 0.64
   const groundY = h * 0.82
 
-  const SKY_TOP = '#2F5E90'
-  const SKY_MID = '#5489C2'
-  const SKY_HORIZON = '#87A9C3'
-  const SKY_WARM = '#B7B0A4'
+  // Sky — overridden by palette when present
+  const SKY_TOP     = palBg?.skyTop    ?? '#2F5E90'
+  const SKY_MID     = palBg?.skyTop    ?? '#5489C2'
+  const SKY_HORIZON = palBg?.skyBottom ?? '#87A9C3'
+  const SKY_WARM    = palBg?.skyBottom ?? '#B7B0A4'
 
+  // Ground — overridden by palette when present
   const GRASS_BRIGHT = '#4A9630'
-  const GRASS_MID = '#3D8228'
-  const GRASS_DEEP = '#2F6A1E'
-  const GRASS_DARK = '#245216'
+  const GRASS_MID    = palBg?.groundStrip ?? '#3D8228'
+  const GRASS_DEEP   = palBg?.groundStrip ?? '#2F6A1E'
+  const GRASS_DARK   = '#245216'
   const GRASS_YELLOW = '#6E9E3A'
-  const GRASS_GROUND = '#356D20'
+  const GRASS_GROUND = palBg?.ground ?? '#356D20'
 
-  const HILL_FAR = '#5F8069'
-  const HILL_MID = '#456F47'
-  const HILL_NEAR = '#355F33'
+  // Hills — overridden by palette when present
+  const HILL_FAR  = palBg?.hillFar  ?? '#5F8069'
+  const HILL_MID  = palBg?.hillNear ?? '#456F47'
+  const HILL_NEAR = palBg?.hillNear ?? '#355F33'
 
   const TREE_CANOPY_DARK = '#245A18'
   const TREE_CANOPY_MID = '#327826'

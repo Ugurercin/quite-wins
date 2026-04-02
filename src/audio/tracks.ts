@@ -1,11 +1,11 @@
-// Maps music context names to their audio files.
-// Add new entries here as you find the mp3s.
+// Maps music context names to audio files.
+// PLACEHOLDER entries use copies of existing files — replace with real audio.
 
 export const MUSIC_TRACKS = {
   onboarding: require('../../assets/audio/music/onboarding.mp3'),
-  // garden: require('../../assets/audio/music/garden.mp3'),
-  // logwin: require('../../assets/audio/music/logwin.mp3'),
-  // recap: require('../../assets/audio/music/recap.mp3'),
+  grove:      require('../../assets/audio/music/grove.mp3'),       // PLACEHOLDER — replace with real file
+  night:      require('../../assets/audio/music/night.mp3'),       // PLACEHOLDER — replace with real file
+  space:      require('../../assets/audio/music/space.mp3'),       // PLACEHOLDER — replace with real file
 } as const
 
 export type MusicContext = keyof typeof MUSIC_TRACKS
@@ -15,15 +15,16 @@ export type MusicContext = keyof typeof MUSIC_TRACKS
 
 export const SFX_TRACKS = {
   // Plays when user taps "Plant it" button
-  tap: require('../../assets/audio/sfx/level_up.mp3'),
+  tap:              require('../../assets/audio/sfx/level_up.mp3'),
 
   // Plays after the plant grows a stage
-  tree_grow: require('../../assets/audio/sfx/tree_grow.mp3'),
+  tree_grow:        require('../../assets/audio/sfx/tree_grow.mp3'),
 
-  // Uncomment as you add more files:
-  // bloom: require('../../assets/audio/sfx/bloom.mp3'),
-  // win_delete: require('../../assets/audio/sfx/win_delete.mp3'),
-  // season_complete: require('../../assets/audio/sfx/season_complete.mp3'),
+  bloom:            require('../../assets/audio/sfx/bloom.mp3'),            // PLACEHOLDER — replace with real file
+  season_complete:  require('../../assets/audio/sfx/season_complete.mp3'),  // PLACEHOLDER — replace with real file
+  elder_appears:    require('../../assets/audio/sfx/elder_appears.mp3'),    // PLACEHOLDER — replace with real file
+  win_deleted:      require('../../assets/audio/sfx/win_deleted.mp3'),      // PLACEHOLDER — replace with real file
+  scene_switch:     require('../../assets/audio/sfx/scene_switch.mp3'),     // PLACEHOLDER — replace with real file
 } as const
 
 export type SFXName = keyof typeof SFX_TRACKS

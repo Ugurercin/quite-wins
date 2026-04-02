@@ -11,6 +11,7 @@ export interface Plant {
   winIds: string[]
   isElder: boolean
   seasonId: string
+  sceneId?: string      // which scene this elder belongs to — absent on old data, defaults to 'grove'
   plantType: PlantType
 }
 
@@ -117,7 +118,7 @@ export const usePlants = () => {
   // - remove all regular plants from the finished season
   // - add exactly ONE new elder if the user selected one
   const transitionSeason = useCallback(
-    async (seasonId: string, chosenElderType: PlantType | null): Promise<Plant[]> => {
+    async (seasonId: string, chosenElderType: PlantType | null, activeSceneId: string): Promise<Plant[]> => {
       const current = await loadPlants()
       const existingElders = current.filter(p => p.isElder)
 
@@ -133,6 +134,7 @@ export const usePlants = () => {
           winIds: [],
           isElder: true,
           seasonId,
+          sceneId: activeSceneId,
           plantType: chosenElderType,
         }
 

@@ -8,6 +8,8 @@ const grove: Scene = {
   id: 'grove',
   name: 'Grove',
   locked: false,
+  // TODO: Replace with real screenshot before App Store submission
+  thumbnail: require('../../../assets/thumbnails/grove.png'),
   music: groveMusic,
   getColors: getGroveColors,
   Canvas: GardenCanvas,

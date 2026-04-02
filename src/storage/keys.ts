@@ -10,4 +10,5 @@ export const STORAGE_KEYS = {
   SFX_ENABLED: 'qw_sfx_enabled',
   ACTIVE_SCENE: 'qw_active_scene',
   LAST_NOTIF_INDEX: 'qw_last_notif_index',
+  ACTIVE_PALETTE: 'qw_active_palette',
 } as const

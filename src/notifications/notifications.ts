@@ -1,3 +1,7 @@
+// NOTE: Local notifications work in Expo Go on iOS.
+// On Android Expo Go, scheduling may be limited — use a dev build for full testing.
+// Remote/push notifications require a dev build on both platforms.
+
 import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { STORAGE_KEYS } from '@/storage/keys'
@@ -39,36 +43,42 @@ export async function getNextNotificationMessage(isGrace?: boolean): Promise<str
   return pool[idx]
 }
 
-export async function scheduleDailyNotification(time: string, todayWinCount: number): Promise<void> {
-  if (todayWinCount >= 3) {
-    await cancelAllNotifications()
-    return
-  }
-
-  let granted = false
+export async function scheduleDailyNotification(
+  time: string,
+  todayWinCount: number,
+  isGrace?: boolean,
+): Promise<void> {
   try {
+    if (todayWinCount >= 4) {
+      await cancelAllNotifications()
+      return
+    }
+
     const { status } = await Notifications.requestPermissionsAsync()
-    granted = status === 'granted'
-  } catch {
-    return
-  }
-  if (!granted) return
+    if (status !== 'granted') return
 
-  const [hourStr, minuteStr] = time.split(':')
-  const hour = parseInt(hourStr, 10)
-  const minute = parseInt(minuteStr, 10)
-  if (isNaN(hour) || isNaN(minute)) return
+    const [hourStr, minuteStr] = time.split(':')
+    const hour = parseInt(hourStr, 10)
+    const minute = parseInt(minuteStr, 10)
+    if (isNaN(hour) || isNaN(minute)) return
 
-  await cancelAllNotifications()
-  const body = await getNextNotificationMessage()
+    await cancelAllNotifications()
+    const body = await getNextNotificationMessage(isGrace)
 
-  try {
     await Notifications.scheduleNotificationAsync({
-      content: { body },
-      trigger: { hour, minute, repeats: true },
+      content: {
+        title: 'Quiet Wins',
+        body,
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      },
     })
   } catch {
-    // Fail silently — permissions revoked or invalid trigger
+    // Fail silently — permissions revoked, invalid trigger, or Expo Go limitation
   }
 }
 
@@ -80,8 +90,12 @@ export async function cancelAllNotifications(): Promise<void> {
   }
 }
 
-export async function onWinLogged(todayWinCount: number, _notifTime: string): Promise<void> {
-  if (todayWinCount >= 3) {
+export async function onWinLogged(
+  todayWinCount: number,
+  _notifTime: string,
+  _isGrace?: boolean,
+): Promise<void> {
+  if (todayWinCount >= 4) {
     await cancelAllNotifications()
   }
 }

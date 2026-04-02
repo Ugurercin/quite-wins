@@ -26,6 +26,8 @@ import { useAudio } from '@/audio/useAudio'
 import GardenCanvas from '@/scenes/grove/GardenCanvas'
 import { DEFAULT_SCENE } from '@/scenes'
 import { COPY } from '@/constants/copy'
+import * as Notifications from 'expo-notifications'
+import { scheduleDailyNotification } from '@/notifications/notifications'
 
 const QUICK_EMOJIS = ['✨', '💪', '📚', '🎯', '🏃', '⭐', '❤️', '🚀', '🌟', '🎉']
 
@@ -72,7 +74,11 @@ const OnboardingScreen = ({ onComplete }: Props) => {
             ? '20:00'
             : customTime || '20:00'
 
+      // Request permission — if denied, continue anyway; user can enable later in Settings
+      await Notifications.requestPermissionsAsync().catch(() => {})
+
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATION_TIME, time)
+      await scheduleDailyNotification(time, 0) // 0 wins at onboarding time
     }
 
     setStep(5)

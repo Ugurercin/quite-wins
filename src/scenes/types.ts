@@ -2,6 +2,9 @@ import React from 'react'
 import { Theme } from '@/theme/theme'
 import { Plant } from '@/hooks/usePlants'
 import { Win } from '@/hooks/useWins'
+import { GroveBackgroundColors } from './grove/palettes/types'
+
+export type { GroveBackgroundColors }
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 // Every scene must provide these color tokens.
@@ -30,6 +33,8 @@ export interface CanvasProps {
   theme: Theme          // still needed for accent colors (emoji → flower color)
   plants: Plant[]
   wins: Win[]
+  activeSceneId: string // filters scene-locked elders — only show elders belonging to this scene
+  paletteBackgroundColors?: GroveBackgroundColors  // Grove-only — overrides sky/hill/ground colors
   onPlantTap?: (plant: Plant) => void
 }
 
@@ -47,6 +52,8 @@ export interface Scene {
   id: string
   name: string
   locked: boolean
+  bundleId?: string     // if set, this scene belongs to a paid bundle
+  thumbnail: any        // require()'d PNG — shown in paywall and shop cards. Replace with real screenshot before App Store submission.
   music: any            // require()'d mp3 — null if no music yet
   getColors: (theme: Theme) => SceneColors   // derives colors from current theme
   Canvas: React.ComponentType<CanvasProps>
