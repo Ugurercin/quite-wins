@@ -11,7 +11,8 @@
       "Bash(cp assets/audio/music/onboarding.mp3 assets/audio/music/night.mp3)",
       "Bash(cp assets/audio/music/onboarding.mp3 assets/audio/music/space.mp3)",
       "Bash(cp assets/audio/sfx/level_up.mp3 assets/audio/sfx/bloom.mp3)",
-      "Bash(cp assets/audio/sfx/level_up.mp3 assets/audio/sfx/season_complete.mp3)"
+      "Bash(cp assets/audio/sfx/level_up.mp3 assets/audio/sfx/season_complete.mp3)",
+      "Bash(grep -rn \"night\\\\|space\" D:/AppStore/quiet-wins/src/hooks --include=*.ts --include=*.tsx)"
     ]
   }
 }

@@ -13,7 +13,10 @@ export const useActiveScene = () => {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_SCENE).then(id => {
-      if (id) setActiveSceneState(getSceneById(id))
+      if (id) {
+        const scene = getSceneById(id)
+        if (!scene.locked) setActiveSceneState(scene)
+      }
     })
   }, [])
 

@@ -7,7 +7,7 @@ import PreviewCanvas from './PreviewCanvas'
 const night: Scene = {
   id: 'night',
   name: 'Night Grove',
-  locked: false,
+  locked: true,
   bundleId: 'night_space_bundle',
   // TODO: Replace with real screenshot before App Store submission
   thumbnail: require('../../../assets/thumbnails/night.png'),
